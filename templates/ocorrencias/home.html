@@ -108,13 +108,13 @@
   </header>
 
   <div class="container">
-    <button class="btn" onclick="window.location.href='{% url 'cadastro_ocorrencia' %}'">
+    <button class="btn" data-href="{% url 'cadastro_ocorrencia' %}" onclick="location.href=this.dataset.href">
       Cadastro de Ocorrências
     </button>
-    <button class="btn" onclick="window.location.href='{% url 'lista_ocorrencias' %}'">
+    <button class="btn" data-href="{% url 'lista_ocorrencias' %}" onclick="location.href=this.dataset.href">
       Lista de Registros
     </button>
-    <button class="btn" onclick="window.location.href='{% url 'relatorios' %}'">
+    <button class="btn" data-href="{% url 'relatorios' %}" onclick="location.href=this.dataset.href">
       Relatórios
     </button>
   </div>
@@ -122,6 +122,8 @@
   <footer>
     <p>&copy; 2025 UNIVESP DRP14-PJI110 - GRUPO-002 PROJETO INTEGRADOR EM COMPUTAÇÃO I - TURMA 005 - Todos os direitos reservados</p>
   </footer>
+
+  {% include 'accessibility_widget.html' %}
 
  </body>
 </html>

@@ -64,7 +64,7 @@ input[type="text"], input[type="date"]{padding:6px 8px; width:120px; border-radi
       </thead>
       <tbody>
         {% for ocorrencia in ocorrencias %}
-        <tr data-id="{{ ocorrencia.id }}">
+  <tr data-id="{{ ocorrencia.id }}" data-lat="{{ ocorrencia.latitude }}" data-lon="{{ ocorrencia.longitude }}">
           <td>{{ ocorrencia.numero }}</td>
           <td>{{ ocorrencia.sigrc }}</td>
           <td>{{ ocorrencia.endereco }}</td>
@@ -120,21 +120,22 @@ input[type="text"], input[type="date"]{padding:6px 8px; width:120px; border-radi
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution:'© OpenStreetMap contributors'}).addTo(map);
   var coresRisco = {"0":"green","1":"yellow","2":"orange","3":"red","4":"darkred"};
   var marcadores = [];
-  var ocorrenciasData = [
-    {% for oc in ocorrencias %}
-    {
-      id: {{ oc.id }},
-      endereco: "{{ oc.endereco|escapejs }}",
-      motivo: "{{ oc.motivo|escapejs }}",
-      area_risco: "{{ oc.area_risco }}",
-      lat: "{{ oc.latitude }}",
-      lon: "{{ oc.longitude }}"
-    }{% if not forloop.last %},{% endif %}
-    {% endfor %}
-  ];
+  // Build occurrences data from table rows (avoids mixing Django tags inside JS)
+  var ocorrenciasData = Array.from(document.querySelectorAll('#ocorrenciasTable tbody tr'))
+    .map(function(tr){
+      return {
+        id: tr.dataset.id,
+        endereco: tr.children[2] ? tr.children[2].textContent.trim() : '',
+        motivo: tr.children[6] ? tr.children[6].textContent.trim() : '',
+        area_risco: tr.children[5] ? tr.children[5].textContent.trim() : '',
+        lat: tr.dataset.lat || '',
+        lon: tr.dataset.lon || ''
+      };
+    });
+
   ocorrenciasData.forEach(function(oc){
-    var lat=parseFloat(oc.lat.replace(',', '.'));
-    var lon=parseFloat(oc.lon.replace(',', '.'));
+    var lat = parseFloat((oc.lat || '').toString().replace(',', '.'));
+    var lon = parseFloat((oc.lon || '').toString().replace(',', '.'));
     if(isFinite(lat)&&isFinite(lon)){
       var cor=coresRisco[oc.area_risco]||"blue";
       var marker=L.circleMarker([lat,lon],{color:cor,radius:8,fillOpacity:0.9,weight:1}).addTo(map);
@@ -237,5 +238,7 @@ input[type="text"], input[type="date"]{padding:6px 8px; width:120px; border-radi
 <footer>
   <p>&copy; 2025 UNIVESP DRP14-PJI110 - GRUPO-002 PROJETO INTEGRADOR EM COMPUTAÇÃO I - TURMA 005 - Todos os direitos reservados</p>
 </footer>
+  {% include 'accessibility_widget.html' %}
+
 </body>
 </html>

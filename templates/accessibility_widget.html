@@ -1,0 +1,8 @@
+{% load static %}
+<!-- accessibility widget include -->
+<div id="a11y-widget" aria-hidden="false">
+  <button id="a11y-btn" aria-label="Ler página em voz alta" aria-pressed="false">🔊</button>
+  <div id="a11y-hint">Clique = ler / Clique direito = ler seleção</div>
+</div>
+<link rel="stylesheet" href="{% static 'accessibility/accessibility.css' %}">
+<script src="{% static 'accessibility/accessibility.js' %}"></script>
