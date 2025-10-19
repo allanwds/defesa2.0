@@ -1,4 +1,8 @@
 import io
+import unicodedata
+import requests
+import ssl
+import urllib.request
 from datetime import datetime
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
@@ -6,21 +10,25 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.http import require_POST
 from django.http import HttpResponse
-from django.db.models import Count
-from django.db import IntegrityError
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from django.db.models import Count, Q
+from django.db import IntegrityError, DatabaseError, transaction
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+from reportlab.lib.pagesizes import letter, landscape, A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter, landscape
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import mm
+from reportlab.pdfgen import canvas
 from io import BytesIO
 from .models import Ocorrencia
 from .forms import OcorrenciaForm
 from django.http import JsonResponse
-from django.db.models import Count
 from django.utils.dateparse import parse_date
-
+from django.template.loader import render_to_string
+from reportlab.lib.utils import ImageReader
+from django.db.models.functions import TruncMonth
 
 # --------------------- LOGIN / LOGOUT ---------------------
+LOGO_URL = "https://www.prefeitura.sp.gov.br/cidade/secretarias/upload/comunicacao/noticias/defesacivil.jpg"
 
 def login_view(request):
     if request.method == "POST":
@@ -57,11 +65,42 @@ def home(request):
 def cadastro_ocorrencia(request):
     if request.method == 'POST':
         form = OcorrenciaForm(request.POST)
+
         if form.is_valid():
-            form.save()
-            return redirect('lista_ocorrencias')
-    else:
-        form = OcorrenciaForm()
+            try:
+                with transaction.atomic():
+                    form.save()
+                messages.success(request, 'Ocorrência cadastrada com sucesso!')
+                return redirect('lista_ocorrencias')
+
+            except IntegrityError as e:
+                msg = str(e)
+
+                # 🔒 Mapas de erros comuns de integridade
+                if 'ocorrencias_ocorrencia_numero_key' in msg or ('unique' in msg.lower() and 'numero' in msg.lower()):
+                    form.add_error('numero', 'Número de FOC já cadastrado.')
+                elif 'sigrc' in msg.lower() and 'unique' in msg.lower():
+                    form.add_error('sigrc', 'SIGRC já cadastrado.')
+                elif 'not null constraint failed' in msg.lower() and 'latitude' in msg.lower():
+                    form.add_error('latitude', 'Latitude é obrigatória. Selecione no mapa.')
+                elif 'not null constraint failed' in msg.lower() and 'longitude' in msg.lower():
+                    form.add_error('longitude', 'Longitude é obrigatória. Selecione no mapa.')
+                else:
+                    form.add_error(None, 'Erro de integridade ao salvar. Verifique os campos e tente novamente.')
+
+                messages.error(request, 'Não foi possível salvar. Corrija os erros destacados.')
+
+            except DatabaseError:
+                form.add_error(None, 'Erro no banco de dados. Tente novamente.')
+                messages.error(request, 'Erro no banco de dados. Tente novamente.')
+
+        else:
+            messages.error(request, 'Corrija os erros abaixo e tente novamente.')
+
+        return render(request, 'ocorrencias/cadastro.html', {'form': form})
+
+    # GET
+    form = OcorrenciaForm()
     return render(request, 'ocorrencias/cadastro.html', {'form': form})
 
 
@@ -75,15 +114,42 @@ def lista_ocorrencias(request):
 def salvar_ocorrencia(request):
     if request.method == 'POST':
         form = OcorrenciaForm(request.POST)
+
         if form.is_valid():
             try:
-                form.save()
+                with transaction.atomic():
+                    form.save()
+                messages.success(request, 'Ocorrência cadastrada com sucesso!')
                 return redirect('lista_ocorrencias')
+
             except IntegrityError as e:
-                if 'ocorrencias_ocorrencia_numero_key' in str(e):
+                msg = str(e)
+
+                # 🔒 Mapas de erros comuns de integridade
+                if 'ocorrencias_ocorrencia_numero_key' in msg or ('unique' in msg.lower() and 'numero' in msg.lower()):
                     form.add_error('numero', 'Número de FOC já cadastrado.')
-    else:
-        form = OcorrenciaForm()
+                elif 'sigrc' in msg.lower() and 'unique' in msg.lower():
+                    form.add_error('sigrc', 'SIGRC já cadastrado.')
+                elif 'not null constraint failed' in msg.lower() and 'latitude' in msg.lower():
+                    form.add_error('latitude', 'Latitude é obrigatória. Selecione no mapa.')
+                elif 'not null constraint failed' in msg.lower() and 'longitude' in msg.lower():
+                    form.add_error('longitude', 'Longitude é obrigatória. Selecione no mapa.')
+                else:
+                    form.add_error(None, 'Erro de integridade ao salvar. Verifique os campos e tente novamente.')
+
+                messages.error(request, 'Não foi possível salvar. Corrija os erros destacados.')
+
+            except DatabaseError:
+                form.add_error(None, 'Erro no banco de dados. Tente novamente.')
+                messages.error(request, 'Erro no banco de dados. Tente novamente.')
+
+        else:
+            messages.error(request, 'Corrija os erros abaixo e tente novamente.')
+
+        return render(request, 'ocorrencias/cadastro.html', {'form': form})
+
+    # GET
+    form = OcorrenciaForm()
     return render(request, 'ocorrencias/cadastro.html', {'form': form})
 
 
@@ -121,6 +187,7 @@ def busca_relatorios(request):
     endereco = request.GET.get('endereco')
     distrito = request.GET.get('distrito')
     motivo = request.GET.get('motivo')
+    bairro = request.GET.get('bairro')
 
     ocorrencias = Ocorrencia.objects.all().order_by('-numero')
 
@@ -137,10 +204,92 @@ def busca_relatorios(request):
         ocorrencias = ocorrencias.filter(distrito__icontains=distrito)
     if motivo:
         ocorrencias = ocorrencias.filter(motivo__icontains=motivo)
+    if bairro:
+        ocorrencias = ocorrencias.filter(bairro__icontains=bairro)
 
     return render(request, 'ocorrencias/relatorios.html', {'ocorrencias': ocorrencias})
 
+# 1) Página (render do HTML) — use este para abrir /graficos/
+def graficos_page(request):
+    return render(request, 'ocorrencias/graficos.html')
 
+
+# 2) Dados (JSON) — a página consome via fetch/Chart.js
+@login_required
+def graficos_data(request):
+    qs = Ocorrencia.objects.all()
+
+    # filtros
+    data_inicial = (request.GET.get("data_inicial") or "").strip()
+    data_final   = (request.GET.get("data_final") or "").strip()
+    distrito     = (request.GET.get("distrito") or "").strip()
+    motivo       = (request.GET.get("motivo") or "").strip()
+    endereco     = (request.GET.get("endereco") or "").strip()
+    bairro       = (request.GET.get("bairro") or "").strip()
+    tipo         = (request.GET.get("tipo") or "").strip()
+
+    if data_inicial:
+        d_ini = parse_date(data_inicial)
+        if d_ini:
+            qs = qs.filter(data__gte=d_ini)
+    if data_final:
+        d_fim = parse_date(data_final)
+        if d_fim:
+            qs = qs.filter(data__lte=d_fim)
+
+    if distrito: qs = qs.filter(distrito__icontains=distrito)
+    if motivo:   qs = qs.filter(motivo__icontains=motivo)
+    if endereco: qs = qs.filter(endereco__icontains=endereco)
+    if bairro:   qs = qs.filter(bairro__icontains=bairro)
+    if tipo:     qs = qs.filter(tipo__icontains=tipo)
+
+    # agregações
+    motivos_qs = qs.values("motivo").annotate(total=Count("id")).order_by("-total", "motivo")
+    distritos_qs = qs.values("distrito").annotate(total=Count("id")).order_by("-total", "distrito")
+
+    motivos_labels = [m["motivo"] or "—" for m in motivos_qs]
+    motivos_data   = [m["total"] for m in motivos_qs]
+    distritos_labels = [d["distrito"] or "—" for d in distritos_qs]
+    distritos_data   = [d["total"] for d in distritos_qs]
+
+    # evolução mensal
+    base = qs.annotate(mes=TruncMonth("data"))
+    # meses existentes (ordenados)
+    meses = [row["mes"] for row in
+             base.values("mes").annotate(q=Count("id")).order_by("mes")
+             if row["mes"]]
+    labels_mes = [m.strftime("%Y-%m") for m in meses]
+
+    # motivos existentes (ordenados)
+    motivos_dist = [row["motivo"] or "—" for row in
+                    base.values("motivo").annotate(q=Count("id")).order_by("motivo")]
+
+    # contagem por (mes, motivo)
+    grid_qs = base.values("mes", "motivo").annotate(qtd=Count("id"))
+    contador = {}
+    for g in grid_qs:
+        k = (g["mes"].strftime("%Y-%m") if g["mes"] else "", g["motivo"] or "—")
+        contador[k] = g["qtd"]
+
+    series = []
+    for mot in motivos_dist:
+        linha = [contador.get((lab, mot), 0) for lab in labels_mes]
+        series.append({"label": mot, "data": linha})
+
+    payload = {
+        "motivos": {"labels": motivos_labels, "data": motivos_data},
+        "distritos": {"labels": distritos_labels, "data": distritos_data},
+        "total_motivos": sum(motivos_data) if motivos_data else 0,
+        "total_distritos": sum(distritos_data) if distritos_data else 0,
+
+        # novo bloco multi-série:
+        "evolucao_mensal_motivos": {
+            "labels": labels_mes,     # ["2025-01", "2025-02", ...]
+            "series": series          # [ {label:"Queda de árvore", data:[...]}, ... ]
+        }
+    }
+    return JsonResponse(payload)
+    
 @login_required
 def graficos_ocorrencias(request):
     tipo = request.GET.get('tipo')
@@ -172,82 +321,401 @@ def graficos_ocorrencias(request):
     }
     return render(request, 'ocorrencias/graficos.html', context)
 
+class NumberedCanvas(canvas.Canvas):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._saved_page_states = []
+
+    def showPage(self):
+        self._saved_page_states.append(dict(self.__dict__))
+        super().showPage()
+
+    def save(self):
+        num_pages = len(self._saved_page_states)
+        for state in self._saved_page_states:
+            self.__dict__.update(state)
+            self.draw_page_number(num_pages)
+            super().showPage()
+        super().save()
+
+    def draw_page_number(self, page_count):
+        self.setFont("Helvetica", 9)
+        text = f"Página {self._pageNumber} de {page_count}"
+        # Rodapé (direita)
+        w = self.stringWidth(text, "Helvetica", 9)
+        self.drawString(A4[0] - 20*mm - w, 12*mm, text)
+
+_LOGO_IMG_READER = None
+
+def _fetch_logo_bytes():
+    """
+    Baixa o logo da prefeitura tentando múltiplas estratégias.
+    Retorna bytes (ou None).
+    """
+    url = "https://www.prefeitura.sp.gov.br/cidade/secretarias/upload/comunicacao/noticias/defesacivil.jpg"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ReportLab/3.x",
+        "Referer": "https://www.prefeitura.sp.gov.br/",
+        "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+    }
+
+    # 1) requests normal
+    try:
+        resp = requests.get(url, headers=headers, timeout=10)
+        resp.raise_for_status()
+        if resp.content:
+            return resp.content
+    except Exception as e:
+        print("[PDF] requests get falhou:", e)
+
+    # 2) urllib com SSL padrão
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as r:
+            data = r.read()
+            if data:
+                return data
+    except Exception as e:
+        print("[PDF] urllib padrão falhou:", e)
+
+    # 3) urllib com SSL relaxado (caso servidor tenha cadeia estranha)
+    try:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, context=ctx, timeout=10) as r:
+            data = r.read()
+            if data:
+                return data
+    except Exception as e:
+        print("[PDF] urllib relaxado falhou:", e)
+
+    return None
+
+def _get_remote_image_reader(url: str) -> ImageReader | None:
+    """
+    Baixa imagem remota (com UA e fallback SSL) e retorna ImageReader.
+    Retorna None se falhar.
+    """
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ReportLab",
+        "Referer": "https://www.prefeitura.sp.gov.br/",
+        "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+    }
+
+    # 1) tentativa normal
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as r:
+            data = r.read()
+            if data:
+                return ImageReader(io.BytesIO(data))
+    except Exception as e:
+        print("[PDF] urllib (padrão) falhou:", e)
+
+    # 2) fallback com SSL relaxado
+    try:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, context=ctx, timeout=10) as r:
+            data = r.read()
+            if data:
+                return ImageReader(io.BytesIO(data))
+    except Exception as e:
+        print("[PDF] urllib (SSL relaxado) falhou:", e)
+
+    return None
+
+def draw_header_footer_with_logo(canvas, doc, titulo: str, logo_ir: ImageReader | None):
+    """
+    Cabeçalho com (tentativa de) logo à esquerda e título à direita; rodapé com página.
+    Se logo_ir == None, escreve 'LOGO INDISPONÍVEL' no lugar do logo (pra ficar evidente).
+    """
+    canvas.saveState()
+    page_w, page_h = A4
+    left_margin = 15 * mm
+    right_margin = 15 * mm
+    top_margin = 15 * mm
+
+    # --- Logo ---
+    x_logo = left_margin
+    target_h = 12 * mm
+    x_title = left_margin  # fallback
+
+    if logo_ir is not None:
+        try:
+            iw, ih = logo_ir.getSize()
+            scale = target_h / float(ih)
+            draw_w = iw * scale
+            draw_h = target_h
+            y_logo = page_h - top_margin - draw_h
+            canvas.drawImage(
+                logo_ir, x_logo, y_logo,
+                width=draw_w, height=draw_h,
+                preserveAspectRatio=True, mask='auto'
+            )
+            x_title = x_logo + draw_w + 6 * mm
+        except Exception as e:
+            print("[PDF] drawImage falhou:", e)
+            # Marca visível para confirmar execução:
+            canvas.setFont("Helvetica-Oblique", 8)
+            canvas.setFillColor(colors.HexColor("#AA0000"))
+            canvas.drawString(x_logo, page_h - top_margin - 9, "LOGO INDISPONÍVEL")
+            canvas.setFillColor(colors.black)
+            x_title = left_margin + 45
+    else:
+        # Marca visível para confirmar que o header rodou:
+        canvas.setFont("Helvetica-Oblique", 8)
+        canvas.setFillColor(colors.HexColor("#AA0000"))
+        canvas.drawString(x_logo, page_h - top_margin - 9, "LOGO INDISPONÍVEL")
+        canvas.setFillColor(colors.black)
+        x_title = left_margin + 45
+
+    # --- Título ---
+    canvas.setFont("Helvetica-Bold", 12)
+    canvas.setFillColor(colors.HexColor("#333333"))
+    canvas.drawString(x_title, page_h - top_margin - 9, titulo)
+
+    # Linha
+    canvas.setStrokeColor(colors.HexColor("#f2a654"))
+    canvas.setLineWidth(0.8)
+    canvas.line(left_margin, page_h - 17 * mm, page_w - right_margin, page_h - 17 * mm)
+
+    # --- Rodapé ---
+    canvas.setFont("Helvetica", 8)
+    canvas.setFillColor(colors.HexColor("#777777"))
+    canvas.drawString(left_margin, 12 * mm, "DDEC-MB • Relatório gerado automaticamente")
+
+    canvas.setFont("Helvetica", 9)
+    canvas.setFillColor(colors.HexColor("#666666"))
+    page_txt = f"Página {canvas.getPageNumber()}"
+    canvas.drawRightString(page_w - right_margin, 12 * mm, page_txt)
+
+    canvas.restoreState()
+    
+def _normalize_py(s: str) -> str:
+    """Normaliza string para comparação acento-insensível e case-insensitive."""
+    if s is None:
+        return ''
+    # NFD + remoção de diacríticos
+    s = unicodedata.normalize('NFD', str(s))
+    s = ''.join(ch for ch in s if unicodedata.category(ch) != 'Mn')
+    return s.lower().strip()
+
+def _match_contains(field_value: str, term: str) -> bool:
+    """Retorna True se field_value contém term usando normalização robusta."""
+    if not term:
+        return True
+    return _normalize_py(field_value).find(_normalize_py(term)) != -1
+
+def _draw_header_footer(canvas, doc):
+    """Cabeçalho e rodapé simples com número de página (ReportLab)."""
+    canvas.saveState()
+    w, h = A4  # (width, height)
+
+    # Cabeçalho
+    canvas.setFont("Helvetica-Bold", 12)
+    canvas.drawString(15 * mm, h - 15 * mm, "PREFEITURA DE SÃO PAULO - SMSU/DDEC-MB")
+
+    # Rodapé (numeração)
+    page_txt = f"Página {canvas.getPageNumber()}"
+    canvas.setFont("Helvetica", 9)
+    canvas.setFillColor(colors.HexColor("#666666"))
+    canvas.drawRightString(w - 15 * mm, 12 * mm, page_txt)
+
+    canvas.restoreState()
 
 @login_required
 def gerar_relatorio_pdf(request):
-    data_inicial = request.GET.get('data_inicial')
-    data_final = request.GET.get('data_final')
-    motivo = request.GET.get('motivo')
-    bairro = request.GET.get('bairro')
-    distrito = request.GET.get('distrito')
-    endereco = request.GET.get('endereco')
+    qs = Ocorrencia.objects.all().order_by('-numero')
 
-    ocorrencias = Ocorrencia.objects.all().order_by('-numero')
-    if data_inicial and data_final:
-        ocorrencias = ocorrencias.filter(data__range=[data_inicial, data_final])
-    if motivo:
-        ocorrencias = ocorrencias.filter(motivo__icontains=motivo)
-    if bairro:
-        ocorrencias = ocorrencias.filter(bairro__icontains=bairro)
-    if distrito:
-        ocorrencias = ocorrencias.filter(distrito__icontains=distrito)
-    if endereco:
-        ocorrencias = ocorrencias.filter(endereco__icontains=endereco)
+    # Filtros GET (texto)
+    endereco = request.GET.get('endereco', '').strip()
+    bairro = request.GET.get('bairro', '').strip()
+    distrito = request.GET.get('distrito', '').strip()
+    motivo = request.GET.get('motivo', '').strip()
+    q      = request.GET.get('q', '').strip()
 
+    # Filtros GET (datas) -> filtrados no banco
+    data_inicial = request.GET.get('data_inicial', '').strip()
+    data_final   = request.GET.get('data_final', '').strip()
+
+    if data_inicial:
+        d_ini = parse_date(data_inicial)  # yyyy-mm-dd
+        if d_ini:
+            qs = qs.filter(data__gte=d_ini)
+
+    if data_final:
+        d_fim = parse_date(data_final)
+        if d_fim:
+            qs = qs.filter(data__lte=d_fim)
+
+    # -----------------------------------------
+    # FILTROS DE TEXTO (ACENTO/CASE INSENSITIVE)
+    # -----------------------------------------
+    # Como SQLite não tem "unaccent" nativo, vamos filtrar em Python
+    # sobre o queryset já reduzido pelos filtros de data.
+    filtros_texto_ativos = any([endereco, bairro, distrito, motivo, q])
+
+    if filtros_texto_ativos:
+        objetos_filtrados = []
+        norm_q = _normalize_py(q)
+
+        for o in qs:
+            ok = True
+
+            if endereco and not _match_contains(o.endereco or '', endereco):
+                ok = False
+            if ok and bairro and not _match_contains(o.bairro or '', bairro):
+                ok = False
+            if ok and distrito and not _match_contains(o.distrito or '', distrito):
+                ok = False
+            if ok and motivo and not _match_contains(o.motivo or '', motivo):
+                ok = False
+
+            if ok and norm_q:
+                # busca ampla atravessando campos (inclui numero como texto)
+                ok = (
+                    _match_contains(str(o.numero or ''), norm_q) or
+                    _match_contains(o.endereco or '', norm_q) or
+                    _match_contains(o.bairro or '', norm_q) or
+                    _match_contains(o.distrito or '', norm_q) or
+                    _match_contains(o.motivo or '', norm_q)
+                )
+
+            if ok:
+                objetos_filtrados.append(o)
+
+        # Passa a operar sobre a lista filtrada
+        registros = objetos_filtrados
+    else:
+        # Sem filtro de texto -> mantém avaliação lazy do banco (mas vamos iterar já)
+        registros = list(qs)
+
+    # ---------------------------
+    # MONTAGEM DO PDF (UMA VEZ)
+    # ---------------------------
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(letter))
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=15 * mm,
+        rightMargin=15 * mm,
+        topMargin=25 * mm,
+        bottomMargin=18 * mm,
+    )
+
     styles = getSampleStyleSheet()
+    small_style = ParagraphStyle(
+        'SmallGrey',
+        parent=styles['Normal'],
+        fontSize=9,
+        textColor=colors.HexColor("#555555"),
+        spaceAfter=6,
+    )
+    cell_style = ParagraphStyle(
+        'Cell',
+        parent=styles['Normal'],
+        fontSize=9,
+        leading=11,
+        textColor=colors.black,
+    )
+    title_style = ParagraphStyle(
+        'Title',
+        parent=styles['Heading2'],
+        alignment=1,  # center
+        textColor=colors.HexColor("#333333"),
+        spaceAfter=8,
+    )
 
-    elementos = [Paragraph("Relatório de Ocorrências", styles['Title']), Spacer(1, 12)]
+    elementos = []
 
-    dados = [['Número', 'Data', 'Motivo', 'Bairro', 'Distrito', 'Endereço']]
-    for o in ocorrencias:
-        dados.append([
-            str(o.numero),
-            o.data.strftime('%d/%m/%Y') if o.data else '',
-            o.motivo,
-            o.bairro,
-            o.distrito,
-            o.endereco
+    # Título
+    elementos.append(Paragraph("RELATÓRIO DE OCORRÊNCIAS - DDEC-MB", title_style))
+
+    # Resumo dos filtros
+    filtros_txt = []
+    if data_inicial: filtros_txt.append(f"Início: {data_inicial}")
+    if data_final:   filtros_txt.append(f"Fim: {data_final}")
+    if distrito:     filtros_txt.append(f"Distrito: {distrito}")
+    if bairro:       filtros_txt.append(f"Bairro: {bairro}")
+    if motivo:       filtros_txt.append(f"Motivo: {motivo}")
+    if endereco:     filtros_txt.append(f"Endereço contém: {endereco}")
+    if q:            filtros_txt.append(f"Busca geral: {q}")
+
+    resumo = "NENHUM FILTRO SELECIONADO" if not filtros_txt else "Filtros aplicados — " + " | ".join(filtros_txt)
+    elementos.append(Paragraph(resumo, small_style))
+    elementos.append(Spacer(1, 6))
+
+    # Cabeçalho da tabela
+    header = [
+        Paragraph("<b>FOC</b>", cell_style),
+        Paragraph("<b>Endereço</b>", cell_style),
+        Paragraph("<b>Bairro</b>", cell_style),
+        Paragraph("<b>Distrito</b>", cell_style),
+        Paragraph("<b>Motivo</b>", cell_style),
+        Paragraph("<b>Data</b>", cell_style),
+    ]
+
+    data_rows = []
+    for o in registros:
+        data_rows.append([
+            Paragraph(str(o.numero or ''), cell_style),
+            Paragraph(o.endereco or '', cell_style),
+            Paragraph(o.bairro or '', cell_style),
+            Paragraph(o.distrito or '', cell_style),
+            Paragraph(o.motivo or '', cell_style),
+            Paragraph(o.data.strftime('%d/%m/%Y') if getattr(o, 'data', None) else '', cell_style),
         ])
 
-    tabela = Table(dados, colWidths=[50, 70, 150, 100, 100, 200], repeatRows=1, hAlign='CENTER')
-    tabela.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.orange),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.lightgoldenrodyellow),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.darkorange),
-    ]))
-    elementos.append(tabela)
+    if not data_rows:
+        elementos.append(Paragraph("Nenhuma ocorrência encontrada para os filtros informados.", styles['Normal']))
+    else:
+        # Larguras proporcionais
+        proportions = [0.08, 0.30, 0.15, 0.13, 0.23, 0.11]
+        total_width = A4[0] - (doc.leftMargin + doc.rightMargin)
+        col_widths = [p * total_width for p in proportions]
 
-    doc.build(elementos)
+        table = Table([header] + data_rows, colWidths=col_widths, repeatRows=1, hAlign='LEFT')
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#f2a654")),
+            ('TEXTCOLOR',  (0, 0), (-1, 0), colors.black),
+            ('FONTNAME',   (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE',   (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.HexColor("#fffdf7")]),
+            ('GRID', (0, 0), (-1, -1), 0.25, colors.HexColor("#bbbbbb")),
+
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('LEADING',  (0, 1), (-1, -1), 11),
+
+            ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+            ('ALIGN', (-1, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+
+            ('LEFTPADDING',  (0, 0), (-1, -1), 5),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+            ('TOPPADDING',   (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING',(0, 0), (-1, -1), 4),
+        ]))
+        elementos.append(table)
+
+    # Gera o PDF (uma única vez)
+    doc.build(
+        elementos,
+        onFirstPage=_draw_header_footer,
+        onLaterPages=_draw_header_footer,
+    )
+
     buffer.seek(0)
     response = HttpResponse(buffer, content_type='application/pdf')
     response['Content-Disposition'] = 'attachment; filename="relatorio_ocorrencias.pdf"'
     return response
-
-@login_required
-def graficos_ocorrencias(request):
-    distrito = request.GET.get('distrito')
-    motivo = request.GET.get('motivo')
-
-    qs = Ocorrencia.objects.all()
-    if distrito: qs = qs.filter(distrito=distrito)
-    if motivo: qs = qs.filter(motivo=motivo)
-
-    motivos_count = list(qs.values('motivo').annotate(total=Count('motivo')))
-    distritos_count = list(qs.values('distrito').annotate(total=Count('distrito')))
-
-    return JsonResponse({
-        'motivos': {'labels':[m['motivo'] for m in motivos_count], 'data':[m['total'] for m in motivos_count]},
-        'distritos': {'labels':[d['distrito'] for d in distritos_count], 'data':[d['total'] for d in distritos_count]},
-        'total_motivos': sum(m['total'] for m in motivos_count),
-        'total_distritos': sum(d['total'] for d in distritos_count),
-    })
 
 @login_required
 def graficos_ajax(request):
@@ -262,45 +730,3 @@ def graficos_ajax(request):
     distritos_data = list(qs.values('distrito').annotate(total=Count('distrito')))
 
     return JsonResponse({'motivos': motivos_data, 'distritos': distritos_data})
-
-@login_required
-def graficos_page(request):
-    return render(request, 'ocorrencias/graficos.html')
-
-@login_required
-def graficos_data(request):
-    """Retorna dados JSON filtráveis para os gráficos"""
-    # Filtros opcionais via GET
-    distrito = request.GET.get('distrito')
-    motivo = request.GET.get('motivo')
-    data_inicial = request.GET.get('data_inicial')
-    data_final = request.GET.get('data_final')
-
-    qs = Ocorrencia.objects.all()
-
-    if distrito:
-        qs = qs.filter(distrito=distrito)
-    if motivo:
-        qs = qs.filter(motivo=motivo)
-    if data_inicial:
-        qs = qs.filter(data__gte=parse_date(data_inicial))
-    if data_final:
-        qs = qs.filter(data__lte=parse_date(data_final))
-
-    # Contagem por motivo
-    motivos_count = qs.values('motivo').annotate(total=Count('id')).order_by('-total')
-    distritos_count = qs.values('distrito').annotate(total=Count('id')).order_by('-total')
-
-    data = {
-        "motivos": {
-            "labels": [m['motivo'] for m in motivos_count],
-            "data": [m['total'] for m in motivos_count],
-        },
-        "distritos": {
-            "labels": [d['distrito'] for d in distritos_count],
-            "data": [d['total'] for d in distritos_count],
-        },
-        "total_motivos": sum([m['total'] for m in motivos_count]),
-        "total_distritos": sum([d['total'] for d in distritos_count]),
-    }
-    return JsonResponse(data)

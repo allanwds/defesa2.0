@@ -26,27 +26,30 @@
     }
 
     .logo {
-      width: 120px;
+      width: 150px;
       margin-bottom: 10px;
     }
 
+    /* Botão SAIR */
     .logout-btn {
       position: absolute;
-      top: 20px;
-      right: 20px;
-      padding: 10px 20px;
-      font-size: 0.9em;
-      background: #e53935;
+      top: 16px;
+      right: 15px;
+      padding: 3px 10px;      /* menor */
+      font-size: 0.70em;      /* menor */
+      background: #d28125ff;
       color: white;
       border: none;
-      border-radius: 20px;
+      border-radius: 16px;
       cursor: pointer;
-      transition: all 0.3s ease;
+      transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
     }
 
     .logout-btn:hover {
       background: #c62828;
-      transform: scale(1.05);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.18);
     }
 
     .container {
@@ -58,6 +61,7 @@
       padding: 30px 20px;
     }
 
+    /* Botões de atalhos */
     .btn {
       padding: 18px 50px;
       font-size: 1.2em;
@@ -67,23 +71,18 @@
       border-radius: 30px;
       background-color: #fb8c00;
       color: white;
-      transition: all 0.3s ease;
-      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
       width: 320px;
       text-align: center;
-      animation: pulse 1.5s infinite;
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.12);
+      transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
     }
 
-    .btn:hover {
+    .btn:hover,
+    .btn:focus-visible {
       background-color: #f57c00;
-      transform: scale(1.05);
-      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-    }
-
-    @keyframes pulse {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.05); }
-      100% { transform: scale(1); }
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.18);
+      outline: none;
     }
 
     footer {
@@ -95,7 +94,7 @@
     }
   </style>
 </head>
-<body onload="exibirBoasVindas()">
+<body>
   <header>
     <div>
       <img src="https://www.prefeitura.sp.gov.br/cidade/secretarias/upload/comunicacao/noticias/defesacivil.jpg" alt="Logo Defesa Civil São Paulo" class="logo">
@@ -117,11 +116,14 @@
     <button class="btn" onclick="window.location.href='{% url 'relatorios' %}'">
       Relatórios
     </button>
+    </button>
+    <button class="btn" onclick="window.location.href='{% url 'graficos_page' %}'">
+      Gráficos
+    </button>
   </div>
 
   <footer>
-    <p>&copy; 2025 UNIVESP DRP14-PJI110 - GRUPO-002 PROJETO INTEGRADOR EM COMPUTAÇÃO I - TURMA 005 - Todos os direitos reservados</p>
+    <p>&copy; 2025 UNIVESP - PROJETO INTEGRADOR EM COMPUTAÇÃO I e II - Todos os direitos reservados</p>
   </footer>
-
- </body>
+</body>
 </html>

@@ -8,7 +8,6 @@ urlpatterns = [
     path('relatorios/', views.busca_relatorios, name='relatorios'),
     path('ocorrencia/editar/<int:id>/', views.editar_ocorrencia_inline, name='editar_ocorrencia_inline'),
     path('ocorrencia/excluir/<int:id>/', views.excluir_ocorrencia, name='excluir_ocorrencia'),
-    path('graficos/', views.graficos_ocorrencias, name='graficos_ocorrencias'),
     path('relatorio/pdf/', views.gerar_relatorio_pdf, name='relatorio_pdf'),
     path('graficos/data/', views.graficos_data, name='graficos_data'),
     path('graficos/', views.graficos_page, name='graficos_page'),

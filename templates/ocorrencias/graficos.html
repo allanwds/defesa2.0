@@ -1,124 +1,327 @@
 {% load static %}
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <title>Gráficos de Ocorrências</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <style>
-        body { font-family: 'Rubik', sans-serif; background:#fff3e0; margin: 0; padding: 20px; }
-        .container { max-width: 1200px; margin: auto; }
-        .card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 6px 12px rgba(0,0,0,0.1); margin-bottom: 30px; }
-        h3 { color: #ff9800; margin-bottom: 20px; }
-        select, input[type=date], button { padding: 8px 12px; border-radius: 8px; border:1px solid #ccc; margin-right: 10px; }
-        button { background-color: #fb8c00; color: #fff; border: none; cursor: pointer; }
-        button:hover { background-color: #f57c00; }
-        canvas { margin-top: 20px; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gráficos de Ocorrências</title>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body{font-family:'Rubik',sans-serif;background:#fff3e0;margin:0}
+    header{background:#ff9800;color:#fff;text-align:center;padding:20px 0}
+    .container{max-width:1200px;margin:30px auto;padding:0 16px}
+    .row{display:flex;flex-wrap:wrap;gap:20px}
+    .card{background:#fff;border-radius:12px;box-shadow:0 6px 12px rgba(0,0,0,.1);padding:16px;flex:1 1 520px;min-width:320px}
+    h2,h3{margin:8px 0}
+    .filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;align-items:end}
+    .filters label{display:block;font-size:.9rem;margin-bottom:4px}
+    .filters input,.filters select{padding:8px 10px;border:1px solid #ccc;border-radius:8px;min-width:160px}
+    .btn{padding:10px 16px;border:none;border-radius:20px;background:#fb8c00;color:#fff;cursor:pointer}
+    .btn:hover{background:#f57c00}
+    .totais{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+    .badge{background:#ffb74d;color:#333;border-radius:12px;padding:6px 10px;font-weight:600}
+    .muted{color:#666;font-size:.95rem}
+    .analysis{margin:30px auto; max-width:800px; background:#fff8e1; border-left:6px solid #ff9800; padding:15px; border-radius:8px;}
+    .analysis h4{color:#e65100;margin:0 0 8px}
+
+    /* Área do gráfico de linha */
+    .line-wrap{position:relative;height:300px}
+    #chartEvolucao{position:absolute;inset:0;width:100% !important;height:100% !important;}
+    #no-evolucao{margin:8px 0 0 0;color:#666;display:none;}
+  </style>
 </head>
 <body>
+<header>
+  <h2>ANÁLISE DOS RESULTADOS – DDEC-MB</h2>
+</header>
+
 <div class="container">
+  <!-- Filtros (AJAX) -->
+  <div class="card">
+    <h3>Filtros</h3>
+    <form id="filters" class="filters">
+      <div>
+        <label for="data_inicial">Data inicial</label>
+        <input type="date" id="data_inicial" name="data_inicial">
+      </div>
+      <div>
+        <label for="data_final">Data final</label>
+        <input type="date" id="data_final" name="data_final">
+      </div>
+      <div>
+        <label for="distrito">Distrito</label>
+        <select id="distrito" name="distrito">
+          <option value="">— Todos —</option>
+        </select>
+      </div>
+      <div>
+        <label for="motivo">Motivo</label>
+        <select id="motivo" name="motivo">
+          <option value="">— Todos —</option>
+        </select>
+      </div>
+      <div>
+        <button type="submit" class="btn">Aplicar</button>
+        <button type="button" id="limpar" class="btn">Limpar</button>
+      </div>
+    </form>
+    <p class="muted">Dica: deixe os campos em branco para ver o panorama geral.</p>
+  </div>
+
+  <div class="row">
     <div class="card">
-        <h3>Filtros</h3>
-        <select id="filtro-distrito">
-            <option value="">Todos os distritos</option>
-        </select>
-        <select id="filtro-motivo">
-            <option value="">Todos os motivos</option>
-        </select>
-        <input type="date" id="data-inicio">
-        <input type="date" id="data-fim">
-        <button id="aplicar-filtros">Aplicar</button>
+      <h3>Ocorrências por motivo</h3>
+      <div class="totais">
+        <span class="badge">Total: <span id="total_motivos">–</span></span>
+      </div>
+      <canvas id="chartMotivos" height="260"></canvas>
     </div>
 
     <div class="card">
-        <h3>Ocorrências por Motivo</h3>
-        <canvas id="grafico-motivos" width="400" height="200"></canvas>
+      <h3>Ocorrências por distrito</h3>
+      <div class="totais">
+        <span class="badge">Total: <span id="total_distritos">–</span></span>
+      </div>
+      <canvas id="chartDistritos" height="260"></canvas>
     </div>
+  </div>
 
-    <div class="card">
-        <h3>Ocorrências por Distrito</h3>
-        <canvas id="grafico-distritos" width="400" height="200"></canvas>
+  <!-- Evolução mensal -->
+  <div class="row">
+    <div class="card" style="flex:1 1 100%;">
+      <h3>Evolução mensal por motivo de ocorrência</h3>
+      <div class="line-wrap">
+        <canvas id="chartEvolucao"></canvas>
+      </div>
+      <p id="no-evolucao" class="muted">Sem dados mensais para os filtros selecionados.</p>
     </div>
+  </div>
+
+  <!-- Análise automática -->
+  <div class="analysis">
+    <h4>📊 Análise dos Resultados</h4>
+    <p id="resumoFiltros" class="muted"></p>
+    <p id="textoAnalise" style="font-size:1.05em; line-height:1.6; color:#333;"></p>
+    <a href="{% url 'home' %}" class="btn">VOLTAR</a>
+  </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-let chartMotivos = null;
-let chartDistritos = null;
+  const DATA_URL = "{% url 'graficos_data' %}";
 
-function carregarFiltros(data) {
-    const selectDistrito = $('#filtro-distrito');
-    const selectMotivo = $('#filtro-motivo');
-    selectDistrito.empty().append('<option value="">Todos os distritos</option>');
-    selectMotivo.empty().append('<option value="">Todos os motivos</option>');
+  let chartMotivos, chartDistritos, chartEvolucao;
+  let optionsLoaded = false;
 
-    data.distritos.labels.forEach(d => selectDistrito.append(`<option value="${d}">${d}</option>`));
-    data.motivos.labels.forEach(m => selectMotivo.append(`<option value="${m}">${m}</option>`));
-}
-
-function atualizarGraficos(filtros={}) {
-    $.getJSON("{% url 'graficos_data' %}", filtros, function(data) {
-        carregarFiltros(data);
-
-        // Gráfico Motivos
-        if (chartMotivos) chartMotivos.destroy();
-        const ctxMotivos = document.getElementById('grafico-motivos').getContext('2d');
-        chartMotivos = new Chart(ctxMotivos, {
-            type: 'bar',
-            data: {
-                labels: data.motivos.labels,
-                datasets: [{
-                    label: 'Quantidade',
-                    data: data.motivos.data,
-                    backgroundColor: '#fb8c00'
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true } }
-            }
-        });
-
-        // Gráfico Distritos
-        if (chartDistritos) chartDistritos.destroy();
-        const ctxDistritos = document.getElementById('grafico-distritos').getContext('2d');
-        chartDistritos = new Chart(ctxDistritos, {
-            type: 'bar',
-            data: {
-                labels: data.distritos.labels,
-                datasets: [{
-                    label: 'Quantidade',
-                    data: data.distritos.data,
-                    backgroundColor: '#f57c00'
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true } }
-            }
-        });
+  function buildBar(ctx, labels, data){
+    return new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets: [{ label: 'Ocorrências', data, borderWidth: 1 }] },
+      options: { responsive: true, scales: { y: { beginAtZero: true, ticks:{stepSize:1} } } }
     });
-}
+  }
 
-// Inicializa os gráficos ao carregar a página
-$(document).ready(function() {
-    atualizarGraficos();
-
-    // Botão de filtros
-    $('#aplicar-filtros').click(function() {
-        const filtros = {
-            distrito: $('#filtro-distrito').val(),
-            motivo: $('#filtro-motivo').val(),
-            data_inicio: $('#data-inicio').val(),
-            data_fim: $('#data-fim').val()
-        };
-        atualizarGraficos(filtros);
+  function buildDoughnut(ctx, labels, data){
+    return new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ label: 'Ocorrências', data }] },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
     });
-});
+  }
+function buildMultiLine(ctx, labels, series){
+    // paleta de cores amigável
+    const palette = [
+      '#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
+      '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'
+    ];
+    const datasets = series.map((s, i) => ({
+      label: s.label,
+      data: s.data,
+      borderColor: palette[i % palette.length],
+      backgroundColor: palette[i % palette.length] + '33',
+      borderWidth: 2,
+      tension: .35,
+      pointRadius: 0,
+      pointHitRadius: 10,
+      fill: false
+    }));
+
+    return new Chart(ctx, {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            callbacks: {
+              title: (items)=>{
+                const raw = items[0]?.label || '';
+                const [y,m] = raw.split('-');
+                const N = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+                const mm = Math.max(0, (parseInt(m||'1',10)-1));
+                return `${N[mm]}/${String(y).slice(-2)}`;
+              },
+              label: (item)=> ` ${item.dataset.label}: ${item.formattedValue}`
+            }
+          }
+        },
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          x: { grid:{display:false} },
+          y: { beginAtZero:true, grid:{display:true} }
+        }
+      }
+    });
+  }
+
+  async function fetchData(params = {}){
+    const url = new URL(DATA_URL, window.location.origin);
+    Object.entries(params).forEach(([k,v]) => { if(v) url.searchParams.set(k, v) });
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('Falha ao carregar dados');
+    return res.json();
+  }
+
+  function updateTotals(p){
+    document.getElementById('total_motivos').textContent  = p.total_motivos ?? 0;
+    document.getElementById('total_distritos').textContent = p.total_distritos ?? 0;
+  }
+
+  function populateSelect(id, values){
+    const sel=document.getElementById(id); if(!sel) return;
+    const current = sel.value;
+    sel.innerHTML = '<option value="">— Todos —</option>';
+    values.forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
+    if(values.includes(current)) sel.value = current;
+  }
+  function populateSelectsOnce(p){
+    if(optionsLoaded) return;
+    populateSelect('motivo', (p?.motivos?.labels)||[]);
+    populateSelect('distrito', (p?.distritos?.labels)||[]);
+    optionsLoaded = true;
+  }
+
+  function redrawCharts(p){
+    const m  = p.motivos || {labels:[], data:[]};
+    const d  = p.distritos || {labels:[], data:[]};
+    const evm = p.evolucao_mensal_motivos || {labels:[], series:[]};
+
+    if(chartMotivos)   chartMotivos.destroy();
+    if(chartDistritos) chartDistritos.destroy();
+    if(chartEvolucao)  chartEvolucao.destroy();
+
+    chartMotivos   = buildBar(document.getElementById('chartMotivos'), m.labels, m.data);
+    chartDistritos = buildDoughnut(document.getElementById('chartDistritos'), d.labels, d.data);
+
+    const noMsg  = document.getElementById('no-evolucao');
+    const canvas = document.getElementById('chartEvolucao');
+
+    if(Array.isArray(evm.labels) && evm.labels.length && Array.isArray(evm.series) && evm.series.length){
+      noMsg.style.display='none'; canvas.style.display='block';
+      chartEvolucao = buildMultiLine(canvas, evm.labels, evm.series);
+    }else{
+      canvas.style.display='none'; noMsg.style.display='block';
+    }
+  }
+  
+  function updateTotals(p){
+    document.getElementById('total_motivos').textContent  = p.total_motivos ?? 0;
+    document.getElementById('total_distritos').textContent = p.total_distritos ?? 0;
+  }
+
+  function populateSelect(selectId, values){
+    const sel = document.getElementById(selectId);
+    if(!sel) return;
+    const current = sel.value;
+    sel.innerHTML = '<option value="">— Todos —</option>';
+    values.forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
+    if(values.includes(current)) sel.value = current;
+  }
+
+  function populateSelectsOnce(p){
+    if(optionsLoaded) return;
+    populateSelect('motivo', (p?.motivos?.labels)||[]);
+    populateSelect('distrito', (p?.distritos?.labels)||[]);
+    optionsLoaded = true;
+  }
+
+  function formatResumo(params){
+    const p=[]; if(params.data_inicial) p.push(`início: ${params.data_inicial}`);
+    if(params.data_final) p.push(`fim: ${params.data_final}`);
+    if(params.distrito) p.push(`distrito: "${params.distrito}"`);
+    if(params.motivo) p.push(`motivo: "${params.motivo}"`);
+    return p.length?`Filtros aplicados — ${p.join(' · ')}`:'Panorama geral (sem filtros aplicados).';
+  }
+
+  function gerarAnalise(payload, params={}){
+    const alvo=document.getElementById("textoAnalise");
+    const resumo=document.getElementById("resumoFiltros");
+    resumo.textContent = formatResumo(params);
+
+    const m=payload.motivos||{labels:[],data:[]};
+    const d=payload.distritos||{labels:[],data:[]};
+    const total=(m.data||[]).reduce((a,b)=>a+b,0);
+    if(!total){ alvo.innerHTML='Não há registros para os filtros selecionados.'; return; }
+
+    let motivoMais='—', motivoQtd=0;
+    if(m.data.length){ const i=m.data.indexOf(Math.max(...m.data)); motivoMais=m.labels[i]; motivoQtd=m.data[i]; }
+    let distritoMais='—', distritoQtd=0;
+    if(d.data.length){ const i=d.data.indexOf(Math.max(...d.data)); distritoMais=d.labels[i]; distritoQtd=d.data[i]; }
+
+    const partMotivo = Math.round((motivoQtd/total)*100);
+    const partDistrito = Math.round((distritoQtd/total)*100);
+
+   const texto = `
+      É possível observar que o tipo de ocorrência com maior incidência na região da Subprefeitura do M'Boi Mirim foi <strong>${motivoMais}</strong>
+      (${motivoQtd} registros, ${partMotivo}% do total no período analisado). Este resultado sugere a priorização de
+      ações preventivas, vistorias direcionadas e campanhas educativas relacionadas a esse motivo específico.
+      <br><br>
+      Em termos territoriais, o distrito <strong>${distritoMais}</strong> apresentou o maior volume de registros
+      (${distritoQtd} ocorrências, ${partDistrito}% do total), indicando a necessidade de reforço operacional,
+      monitoramento contínuo e coordenação com serviços locais para mitigação de riscos na região.
+      <br><br>
+      Recomenda-se acompanhar a evolução desses indicadores em janelas temporais distintas (semanas, meses e estações)
+      para identificar sazonalidade e intensificar a preparação pré-chuva, quando pertinente.
+    `;
+    alvo.innerHTML = texto;
+  }
+
+  async function load(params={}){
+    try{
+      const payload = await fetchData(params);
+      populateSelectsOnce(payload);
+      updateTotals(payload);
+      redrawCharts(payload);
+      gerarAnalise(payload, params);
+    }catch(e){
+      console.error(e);
+      alert('Não foi possível carregar os gráficos.');
+    }
+  }
+
+  // Primeira carga
+  load();
+
+  // Filtros
+  document.getElementById('filters').addEventListener('submit', (e)=>{
+    e.preventDefault();
+    const params = Object.fromEntries(new FormData(e.target).entries());
+    if(params.data_inicial && params.data_final && params.data_inicial > params.data_final){
+      alert('Data inicial não pode ser maior que a data final.');
+      return;
+    }
+    load(params);
+  });
+
+  document.getElementById('limpar').addEventListener('click', ()=>{
+    document.getElementById('filters').reset();
+    load();
+  });
 </script>
 </body>
 </html>

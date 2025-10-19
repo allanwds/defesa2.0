@@ -12,7 +12,12 @@ body { font-family:'Rubik',sans-serif; background:#fff3e0; margin:0; padding:0; 
 header { background:#ff9800; color:white; text-align:center; padding:20px 0; font-size:2em; box-shadow:0 4px 6px rgba(0,0,0,0.2);}
 .logo{width:120px;margin-bottom:10px}
 .container{padding:20px;display:flex;flex-direction:column;align-items:center}
-#map{height:500px;width:100%;max-width:1200px;border-radius:12px;margin-bottom:20px}
+
+/* mantém o mapa no plano de fundo */
+#map{
+  height:500px;width:100%;max-width:1200px;border-radius:12px;margin-bottom:20px;
+  z-index: 1;
+}
 .table-responsive{width:100%;overflow-x:auto}
 table{width:100%;min-width:900px;margin-top:20px;border-collapse:collapse;background:#fff;box-shadow:0 8px 16px rgba(0,0,0,0.15)}
 th,td{padding:10px;text-align:center;border:1px solid #ddd; cursor: pointer;}
@@ -21,12 +26,21 @@ tr:nth-child(even){background:#f9f9f9}
 .btn{padding:10px 20px;font-size:0.9em;margin:2px;cursor:pointer;border:none;border-radius:20px;background:#fb8c00;color:#fff; display:inline-block;}
 .btn-danger{background:red}
 footer{text-align:center;padding:20px;background:#333;color:#fff;font-size:0.9em}
-input[type="text"], input[type="date"]{padding:6px 8px; width:120px; border-radius:6px; border:1px solid #ccc;}
-.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);justify-content:center;align-items:center;}
-.modal-content{background:white;padding:20px;border-radius:12px;min-width:300px;max-width:600px;position:relative;}
+input[type="text"], input[type="date"]{padding:6px 8px; width:250px; border-radius:6px; border:1px solid #ccc;}
+
+/* Modal acima de tudo */
+.modal{
+  display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,0.5);justify-content:center;align-items:center;
+  z-index: 20000; /* garante que fica acima do mapa e da UI */
+}
+.modal-content{
+  background:white;padding:20px;border-radius:12px;min-width:300px;max-width:600px;position:relative;
+  z-index: 20001; /* conteúdo acima do backdrop */
+}
 .modal-close{position:absolute;top:10px;right:10px;cursor:pointer;font-weight:bold;}
 .toast{position:fixed;bottom:20px;right:20px;padding:15px 25px;background:#333;color:white;border-radius:8px;display:none;z-index:1000;}
-#searchInput{margin-bottom:15px;padding:6px 8px;width:250px;border-radius:6px;border:1px solid #ccc;}
+#searchInput{margin-bottom:15px;}
 .pagination{margin:10px 0; display:flex; justify-content:center; gap:5px;}
 .pagination button{padding:6px 12px; border-radius:5px; border:1px solid #ccc; background:#fb8c00; color:#fff; cursor:pointer;}
 .pagination button.active{background:#f57c00;}
@@ -115,11 +129,14 @@ input[type="text"], input[type="date"]{padding:6px 8px; width:120px; border-radi
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-  // Mapa
+  // -------- MAPA --------
   var map = L.map('map').setView([-23.682, -46.875], 11);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution:'© OpenStreetMap contributors'}).addTo(map);
+
   var coresRisco = {"0":"green","1":"yellow","2":"orange","3":"red","4":"darkred"};
   var marcadores = [];
+  var markersById = {}; // id -> marker
+
   var ocorrenciasData = [
     {% for oc in ocorrencias %}
     {
@@ -132,19 +149,142 @@ input[type="text"], input[type="date"]{padding:6px 8px; width:120px; border-radi
     }{% if not forloop.last %},{% endif %}
     {% endfor %}
   ];
+
   ocorrenciasData.forEach(function(oc){
-    var lat=parseFloat(oc.lat.replace(',', '.'));
-    var lon=parseFloat(oc.lon.replace(',', '.'));
+    var lat=parseFloat(String(oc.lat).replace(',', '.'));
+    var lon=parseFloat(String(oc.lon).replace(',', '.'));
     if(isFinite(lat)&&isFinite(lon)){
       var cor=coresRisco[oc.area_risco]||"blue";
-      var marker=L.circleMarker([lat,lon],{color:cor,radius:8,fillOpacity:0.9,weight:1}).addTo(map);
+      var marker=L.circleMarker([lat,lon],{color:cor,radius:8,fillOpacity:0.9,weight:1});
       marker.bindPopup("<strong>"+oc.endereco+"</strong><br>"+oc.motivo+"<br>Área de risco: "+oc.area_risco);
+      marker.addTo(map);
       marcadores.push(marker);
+      markersById[oc.id] = marker;
     }
   });
-  if(marcadores.length>0){map.fitBounds(L.featureGroup(marcadores).getBounds().pad(0.2));}
 
-  // Modal
+  if(marcadores.length>0){
+    try { map.fitBounds(L.featureGroup(marcadores).getBounds().pad(0.2)); } catch(e){}
+  }
+
+  // Mostra apenas marcadores cujos IDs estiverem visíveis na tabela filtrada
+  function updateMapVisible(visibleIdsSet){
+    var visibleMarkers = [];
+    for (var idStr in markersById){
+      var id = parseInt(idStr);
+      var mk = markersById[idStr];
+      if (visibleIdsSet.has(id)){
+        if (!map.hasLayer(mk)) mk.addTo(map);
+        visibleMarkers.push(mk);
+      } else {
+        if (map.hasLayer(mk)) map.removeLayer(mk);
+      }
+    }
+    if (visibleMarkers.length > 0){
+      try { map.fitBounds(L.featureGroup(visibleMarkers).getBounds().pad(0.2)); } catch(e){}
+    }
+  }
+
+  // -------- TABELA / UI --------
+  function showToast(msg){
+    var toast=document.getElementById("toast");
+    toast.textContent=msg;
+    toast.style.display="block";
+    setTimeout(()=>{toast.style.display="none";},3000);
+  }
+
+  // Normalização (sem acentos e sem diferença de maiúsc/minúsc)
+  function normalizeText(str){
+    if(!str) return '';
+    let s = String(str);
+    try{
+      s = s.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    }catch(e){}
+    const map = {Á:'A',À:'A',Â:'A',Ã:'A',Ä:'A',Å:'A',á:'a',à:'a',â:'a',ã:'a',ä:'a',å:'a',
+                 É:'E',È:'E',Ê:'E',Ë:'E',é:'e',è:'e',ê:'e',ë:'e',
+                 Í:'I',Ì:'I',Î:'I',Ï:'I',í:'i',ì:'i',î:'i',ï:'i',
+                 Ó:'O',Ò:'O',Ô:'O',Õ:'O',Ö:'O',ó:'o',ò:'o',ô:'o',õ:'o',ö:'o',
+                 Ú:'U',Ù:'U',Û:'U',Ü:'U',ú:'u',ù:'u',û:'u',ü:'u',
+                 Ç:'C',ç:'c',Ñ:'N',ñ:'n','º':'o','ª':'a'};
+    s = s.replace(/[^\u0000-\u007E]/g, c => map[c] || c);
+    return s.toLowerCase();
+  }
+
+  const rowsAll = Array.from(document.querySelectorAll('#ocorrenciasTable tbody tr'));
+  rowsAll.forEach(tr => { tr.dataset.norm = normalizeText(tr.textContent); });
+
+  const rowsPerPage = 10;
+  let currentPage = 1;
+
+  function displayPage(page, filterNorm=''){
+    const tbody = document.querySelector('#ocorrenciasTable tbody');
+    tbody.innerHTML = '';
+
+    const filtered = rowsAll.filter(row => row.dataset.norm.includes(filterNorm));
+
+    if(filtered.length===0) showToast('Nenhum resultado encontrado!');
+
+    const start=(page-1)*rowsPerPage;
+    const end=start+rowsPerPage;
+    filtered.slice(start,end).forEach(row => tbody.appendChild(row));
+
+    renderPagination(filtered.length);
+
+    // >>> Atualiza o mapa com TODOS os IDs filtrados (independente da página)
+    const idsVisiveis = new Set(filtered.map(tr => parseInt(tr.getAttribute('data-id'))));
+    updateMapVisible(idsVisiveis);
+  }
+
+  function renderPagination(totalRows){
+    const totalPages=Math.max(1, Math.ceil(totalRows/rowsPerPage));
+    const pagination=document.getElementById('pagination');
+    pagination.innerHTML='';
+    for(let i=1;i<=totalPages;i++){
+      const btn=document.createElement('button');
+      btn.textContent=i;
+      if(i===currentPage) btn.classList.add('active');
+      btn.addEventListener('click',()=>{
+        currentPage=i;
+        const q = normalizeText(document.getElementById('searchInput').value);
+        displayPage(currentPage, q);
+      });
+      pagination.appendChild(btn);
+    }
+  }
+
+  // Filtro instantâneo (atualiza tabela e mapa em tempo real)
+  document.getElementById("searchInput").addEventListener("input", function(){
+    currentPage=1;
+    const q = normalizeText(this.value);
+    displayPage(currentPage, q);
+  });
+
+  // Ordenação
+  document.querySelectorAll("#ocorrenciasTable th[data-column]").forEach(th=>{
+    th.addEventListener("click", function(){
+      const idx=Array.from(this.parentNode.children).indexOf(this);
+      const asc=!this.asc; this.asc=asc;
+      const rows=Array.from(rowsAll);
+      rows.sort((a,b)=>{
+        var v1=a.cells[idx].textContent.trim();
+        var v2=b.cells[idx].textContent.trim();
+        var n1 = normalizeText(v1);
+        var n2 = normalizeText(v2);
+        if(idx===7){ // coluna data
+          v1=new Date(v1.split("/").reverse().join("-"));
+          v2=new Date(v2.split("/").reverse().join("-"));
+          return v1>v2? (asc?1:-1):(v1<v2? (asc?-1:1):0);
+        }
+        return n1>n2? (asc?1:-1):(n1<n2? (asc?-1:1):0);
+      });
+      rows.forEach(r=>r.parentNode.appendChild(r));
+
+      const q = normalizeText(document.getElementById('searchInput').value);
+      displayPage(currentPage, q);
+    });
+  });
+
+  // Modal (edição) — fica acima do mapa
   var editModal=document.getElementById("editModal");
   var editForm=document.getElementById("editForm");
   var closeBtn=document.querySelector(".modal-close");
@@ -167,75 +307,12 @@ input[type="text"], input[type="date"]{padding:6px 8px; width:120px; border-radi
   closeBtn.onclick=function(){editModal.style.display="none";}
   window.onclick=function(e){if(e.target==editModal){editModal.style.display="none";}}
 
-  // Toast
-  function showToast(msg){
-    var toast=document.getElementById("toast");
-    toast.textContent=msg;
-    toast.style.display="block";
-    setTimeout(()=>{toast.style.display="none";},3000);
-  }
-
-  // Paginação
-  const rowsAll = Array.from(document.querySelectorAll('#ocorrenciasTable tbody tr'));
-  const rowsPerPage = 10;
-  let currentPage = 1;
-
-  function displayPage(page, filter=''){
-    const tbody = document.querySelector('#ocorrenciasTable tbody');
-    tbody.innerHTML = '';
-    const filtered = rowsAll.filter(row => row.textContent.toLowerCase().includes(filter));
-    if(filtered.length===0) showToast('Nenhum resultado encontrado!');
-    const start=(page-1)*rowsPerPage;
-    const end=start+rowsPerPage;
-    filtered.slice(start,end).forEach(row => tbody.appendChild(row));
-    renderPagination(filtered.length);
-  }
-
-  function renderPagination(totalRows){
-    const totalPages=Math.ceil(totalRows/rowsPerPage);
-    const pagination=document.getElementById('pagination');
-    pagination.innerHTML='';
-    for(let i=1;i<=totalPages;i++){
-      const btn=document.createElement('button');
-      btn.textContent=i;
-      if(i===currentPage) btn.classList.add('active');
-      btn.addEventListener('click',()=>{
-        currentPage=i;
-        displayPage(currentPage, document.getElementById('searchInput').value.toLowerCase());
-      });
-      pagination.appendChild(btn);
-    }
-  }
-
-  // Filtro instantâneo
-  document.getElementById("searchInput").addEventListener("input",function(){
-    currentPage=1;
-    displayPage(currentPage, this.value.toLowerCase());
-  });
-
-  // Ordenação
-  document.querySelectorAll("#ocorrenciasTable th[data-column]").forEach(th=>{
-    th.addEventListener("click",function(){
-      const tbody=this.closest("table").tBodies[0];
-      const idx=Array.from(this.parentNode.children).indexOf(this);
-      const asc=!this.asc; this.asc=asc;
-      const rows=Array.from(rowsAll);
-      rows.sort((a,b)=>{
-        var v1=a.cells[idx].textContent.trim();
-        var v2=b.cells[idx].textContent.trim();
-        if(idx===7){ v1=new Date(v1.split("/").reverse().join("-")); v2=new Date(v2.split("/").reverse().join("-")); }
-        return v1>v2? (asc?1:-1):(v1<v2? (asc?-1:1):0);
-      });
-      rows.forEach(r=>r.parentNode.appendChild(r));
-      displayPage(currentPage);
-    });
-  });
-
+  // Inicializa
   displayPage(currentPage);
 </script>
 
 <footer>
-  <p>&copy; 2025 UNIVESP DRP14-PJI110 - GRUPO-002 PROJETO INTEGRADOR EM COMPUTAÇÃO I - TURMA 005 - Todos os direitos reservados</p>
+    <p>&copy; 2025 UNIVESP - PROJETO INTEGRADOR EM COMPUTAÇÃO II - Todos os direitos reservados</p>
 </footer>
 </body>
 </html>

@@ -5,121 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Relatório e Filtros de Ocorrências</title>
 <style>
-    body {
-        font-family: 'Poppins', Arial, sans-serif;
-        background-color: #fff3e0;
-        margin: 0;
-        padding: 0;
-        text-align: center;
-    }
-    header {
-        background-color: #ff9800;
-        color: white;
-        padding: 20px;
-        font-size: 2em;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-    }
-    .container {
-        margin: 30px auto;
-        width: 90%;
-        max-width: 1000px;
-    }
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 30px;
-        background-color: white;
-    }
-    th, td {
-        border: 1px solid #ccc;
-        padding: 12px 8px;
-        text-align: center;
-        cursor: pointer;
-    }
-    th {
-        background-color: #ffb74d;
-        font-weight: bold;
-    }
+    body { font-family: 'Poppins', Arial, sans-serif; background-color: #fff3e0; margin: 0; padding: 0; text-align: center; }
+    header { background-color: #ff9800; color: white; padding: 20px; font-size: 2em; box-shadow: 0 4px 6px rgba(0,0,0,.3); }
+    .container { margin: 30px auto; width: 90%; max-width: 1000px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 30px; background-color: white; }
+    th, td { border: 1px solid #ccc; padding: 12px 8px; text-align: center; cursor: pointer; }
+    th { background-color: #ffb74d; font-weight: bold; }
     tr:nth-child(even) { background-color: #ffe0b2; }
-
-    .btn {
-        margin: 10px 5px;
-        padding: 12px 30px;
-        background-color: #fb8c00;
-        color: white;
-        text-decoration: none;
-        border-radius: 30px;
-        font-size: 1.1em;
-        box-shadow: 0 6px 12px rgba(0,0,0,0.2);
-        display: inline-block;
-    }
+    .btn { margin: 10px 5px; padding: 12px 30px; background-color: #fb8c00; color: white; text-decoration: none; border-radius: 30px; font-size: 1.1em; box-shadow: 0 6px 12px rgba(0,0,0,.2); display: inline-block; }
     .btn:hover { background-color: #f57c00; }
-
     .form-filtros { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-bottom: 20px; }
     .form-group { display: flex; flex-direction: column; align-items: center; }
-    input[type="text"], input[type="date"], select {
-        padding: 10px 12px;
-        width: 200px;
-        border-radius: 10px;
-        border: 1px solid #ccc;
-        transition: 0.3s;
-    }
-    input[type="text"]:focus, input[type="date"]:focus, select:focus {
-        border-color: #fb8c00;
-        outline: none;
-        box-shadow: 0 0 8px rgba(251,140,0,0.5);
-    }
-
-    footer { margin-top: 40px; padding: 20px; font-size: 0.9em; color: #666; }
-
-    /* Toast moderno */
-    #toast {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        min-width: 250px;
-        background-color: rgba(251,140,0,0.95);
-        color: white;
-        text-align: center;
-        border-radius: 10px;
-        padding: 16px 20px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        opacity: 0;
-        transform: translateY(-20px);
-        transition: opacity 0.5s ease, transform 0.5s ease;
-        z-index: 9999;
-    }
+    input[type="text"], input[type="date"], select { padding: 10px 12px; width: 200px; border-radius: 10px; border: 1px solid #ccc; transition: .3s; }
+    input[type="text"]:focus, input[type="date"]:focus, select:focus { border-color: #fb8c00; outline: none; box-shadow: 0 0 8px rgba(251,140,0,.5); }
+    footer { margin-top: 40px; padding: 20px; font-size: .9em; color: #666; }
+    #toast { position: fixed; top: 20px; right: 20px; min-width: 250px; background-color: rgba(251,140,0,.95); color: white; text-align: center; border-radius: 10px; padding: 16px 20px; box-shadow: 0 4px 12px rgba(0,0,0,.3); opacity: 0; transform: translateY(-20px); transition: opacity .5s ease, transform .5s ease; z-index: 9999; }
     #toast.show { opacity: 1; transform: translateY(0); }
-
-    #searchTable {
-        margin-bottom:15px; 
-        padding:8px; 
-        width:300px; 
-        border-radius:5px; 
-        border:1px solid #ccc;
-        font-size:1em;
-    }
-
-    /* Paginação */
-    .pagination {
-        margin: 15px 0;
-        display: flex;
-        justify-content: center;
-        gap: 5px;
-    }
-    .pagination button {
-        padding: 6px 12px;
-        border-radius: 5px;
-        border: 1px solid #ccc;
-        background: #fb8c00;
-        color: white;
-        cursor: pointer;
-    }
+    #searchTable { margin-bottom:15px; padding:8px; width:300px; border-radius:5px; border:1px solid #ccc; font-size:1em; }
+    .pagination { margin: 15px 0; display: flex; justify-content: center; gap: 5px; }
+    .pagination button { padding: 6px 12px; border-radius: 5px; border: 1px solid #ccc; background: #fb8c00; color: white; cursor: pointer; }
     .pagination button.active { background: #f57c00; }
 </style>
+
 </head>
 <body>
-
 <header>
     <img src="https://www.prefeitura.sp.gov.br/cidade/secretarias/upload/comunicacao/noticias/defesacivil.jpg" alt="Logo Defesa Civil" style="max-height: 60px;">
     <div>RELATÓRIO E FILTRO DE OCORRÊNCIAS DDEC-MB</div>
@@ -127,31 +36,36 @@
 
 <div class="container">
     <form id="filterForm" class="form-filtros" method="GET">
-        <div class="form-group"><input type="text" name="endereco" placeholder="Endereço"></div>
+        <div class="form-group">
+            <input type="text" name="endereco" placeholder="Endereço" value="{{ request.GET.endereco|default_if_none:'' }}">
+        </div>
+        <div class="form-group">
+            <input type="text" name="bairro" placeholder="Bairro" value="{{ request.GET.bairro|default_if_none:'' }}">
+        </div>
         <div class="form-group">
             <select name="distrito">
                 <option value="">Distrito</option>
-                <option value="Jd. Angela">Jardim Ângela</option>
-                <option value="Jd. São Luis">Jardim São Luís</option>
+                <option value="Jd. Angela" {% if request.GET.distrito == 'Jd. Angela' %}selected{% endif %}>Jardim Ângela</option>
+                <option value="Jd. São Luis" {% if request.GET.distrito == 'Jd. São Luis' %}selected{% endif %}>Jardim São Luís</option>
             </select>
         </div>
         <div class="form-group">
             <select name="motivo">
                 <option value="">Motivo</option>
-                <option value="Erosão na via">Erosão na via</option>
-                <option value="Deslizamento">Deslizamento</option>
-                <option value="Desabamento">Desabamento</option>
-                <option value="Risco de desabamento">Risco de desabamento</option>
-                <option value="Risco de queda de árvore">Risco de queda de árvore</option>
-                <option value="Queda de árvore">Queda de árvore</option>
-                <option value="Alagamento">Alagamento</option>
-                <option value="Inundação">Inundação</option>
-                <option value="Outros">Outros</option>
+                <option value="Erosão na via" {% if request.GET.motivo == 'Erosão na via' %}selected{% endif %}>Erosão na via</option>
+                <option value="Deslizamento" {% if request.GET.motivo == 'Deslizamento' %}selected{% endif %}>Deslizamento</option>
+                <option value="Desabamento" {% if request.GET.motivo == 'Desabamento' %}selected{% endif %}>Desabamento</option>
+                <option value="Risco de desabamento" {% if request.GET.motivo == 'Risco de desabamento' %}selected{% endif %}>Risco de desabamento</option>
+                <option value="Risco de queda de árvore" {% if request.GET.motivo == 'Risco de queda de árvore' %}selected{% endif %}>Risco de queda de árvore</option>
+                <option value="Queda de árvore" {% if request.GET.motivo == 'Queda de árvore' %}selected{% endif %}>Queda de árvore</option>
+                <option value="Alagamento" {% if request.GET.motivo == 'Alagamento' %}selected{% endif %}>Alagamento</option>
+                <option value="Inundação" {% if request.GET.motivo == 'Inundação' %}selected{% endif %}>Inundação</option>
+                <option value="Outros" {% if request.GET.motivo == 'Outros' %}selected{% endif %}>Outros</option>
             </select>
         </div>
         <div class="form-group">
-            <input type="date" name="data_inicial" id="data_inicial">
-            <input type="date" name="data_final" id="data_final">
+            <input type="date" name="data_inicial" id="data_inicial" value="{{ request.GET.data_inicial|default_if_none:'' }}">
+            <input type="date" name="data_final" id="data_final" value="{{ request.GET.data_final|default_if_none:'' }}">
         </div>
         <button type="submit" class="btn">FILTRAR</button>
         <button type="button" id="clearFilters" class="btn">LIMPAR FILTROS</button>
@@ -189,106 +103,201 @@
     <div class="pagination" id="pagination"></div>
 
     <a href="{% url 'home' %}" class="btn">VOLTAR</a>
-    <a href="{% url 'graficos_ocorrencias' %}?{{ request.GET.urlencode }}" class="btn">Gerar Gráficos</a>
-    <a href="{% url 'relatorio_pdf' %}?{{ request.GET.urlencode }}" class="btn">Gerar PDF</a>
+    <button type="button" id="btnPdf" class="btn">Gerar PDF</button>
     <a href="{% url 'logout' %}" class="btn">SAIR</a>
 </div>
 
 <div id="toast"></div>
 
-<footer>
-    <p>&copy; 2025 UNIVESP DRP14-PJI110 - GRUPO-002 PROJETO INTEGRADOR EM COMPUTAÇÃO I - TURMA 005 - Todos os direitos reservados</p>
-</footer>
-
 <script>
+/* pega todas as linhas renderizadas pelo Django */
 const rowsAll = Array.from(document.querySelectorAll('#ocorrenciasTable tbody tr'));
 const rowsPerPage = 10;
 let currentPage = 1;
 
-// Função para mostrar toast
+/* conjunto-base atual para paginação/pesquisa rápida (começa com tudo) */
+let currentBaseRows = rowsAll.slice();
+
+/* toast simples */
 function showToast(message){
-    const toast = document.getElementById('toast');
-    toast.textContent = message;
-    toast.classList.add('show');
-    setTimeout(()=> toast.classList.remove('show'), 3000);
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.classList.add('show');
+  setTimeout(()=> toast.classList.remove('show'), 3000);
 }
 
-// Validação de datas
+/* Normalização robusta (sem acentos, lower) */
+function normalizeText(str) {
+  if (!str) return '';
+  let s = String(str);
+  try { if (s.normalize) s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch(e){}
+  const map = { Á:'A',À:'A',Â:'A',Ã:'A',Ä:'A',Å:'A',á:'a',à:'a',â:'a',ã:'a',ä:'a',å:'a',
+    É:'E',È:'E',Ê:'E',Ë:'E',é:'e',è:'e',ê:'e',ë:'e',
+    Í:'I',Ì:'I',Î:'I',Ï:'I',í:'i',ì:'i',î:'i',ï:'i',
+    Ó:'O',Ò:'O',Ô:'O',Õ:'O',Ö:'O',ó:'o',ò:'o',ô:'o',õ:'o',ö:'o',
+    Ú:'U',Ù:'U',Û:'U',Ü:'U',ú:'u',ù:'u',û:'u',ü:'u',
+    Ç:'C',ç:'c',Ñ:'N',ñ:'n', Ń:'N',ń:'n', Ý:'Y',ý:'y',ÿ:'y', Ŕ:'R',ŕ:'r',
+    'œ':'oe','Æ':'AE','æ':'ae','Ø':'O','ø':'o','º':'o','ª':'a'
+  };
+  s = s.replace(/[^\u0000-\u007E]/g, c => map[c] || c);
+  return s.toLowerCase();
+}
+
+/* cache normalizado por linha */
+rowsAll.forEach(tr => { tr.dataset.norm = normalizeText(tr.textContent); });
+
+/* util: dd/mm/yyyy -> yyyy-mm-dd */
+function toISO(ddmmyyyy) {
+  if (!ddmmyyyy) return '';
+  const [d,m,y] = ddmmyyyy.split('/');
+  if (!y || !m || !d) return '';
+  return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+}
+
+/* valida datas no submit (sem reload) + filtra por campos do formulário com normalização */
 document.getElementById('filterForm').addEventListener('submit', function(e){
-    const inicio = document.getElementById('data_inicial').value;
-    const fim = document.getElementById('data_final').value;
-    if (inicio && fim && inicio > fim) {
-        showToast('Data Início não pode ser maior que Data Fim.');
-        e.preventDefault();
+  e.preventDefault();
+
+  const inicio = document.getElementById('data_inicial').value || '';
+  const fim    = document.getElementById('data_final').value   || '';
+  if (inicio && fim && inicio > fim) {
+    showToast('Data Início não pode ser maior que Data Fim.');
+    return;
+  }
+
+  const endereco = normalizeText(this.elements['endereco']?.value || '');
+  const bairro   = normalizeText(this.elements['bairro']?.value || '');
+  const distrito = normalizeText(this.elements['distrito']?.value || '');
+  const motivo   = normalizeText(this.elements['motivo']?.value || '');
+
+  /* filtra em cima de TODAS as linhas originais (rowsAll) */
+  const filtered = rowsAll.filter(tr => {
+    const normLine = tr.dataset.norm;
+
+    if (endereco && !normLine.includes(endereco)) return false;
+    if (bairro   && !normLine.includes(bairro))   return false;
+    if (distrito && !normLine.includes(distrito)) return false;
+    if (motivo   && !normLine.includes(motivo))   return false;
+
+    if (inicio || fim) {
+      const dataTxt = tr.children[5]?.textContent.trim() || ''; // 6ª coluna
+      const iso = toISO(dataTxt);
+      if (inicio && (!iso || iso < inicio)) return false;
+      if (fim    && (!iso || iso > fim   )) return false;
     }
+    return true;
+  });
+
+  currentBaseRows = filtered;     // atualiza conjunto-base
+  currentPage = 1;
+  displayPage(currentPage, normalizeText(document.getElementById('searchTable').value));
+  if (filtered.length === 0) showToast('Nenhuma ocorrência encontrada com os filtros informados.');
 });
 
-// Limpar filtros
+/* LIMPAR FILTROS: se veio com querystring do servidor, recarrega; senão reseta cliente */
 document.getElementById('clearFilters').addEventListener('click', function(){
-    document.getElementById('filterForm').reset();
-    document.getElementById('searchTable').value = '';
-    currentPage = 1;
-    displayPage(currentPage);
+  const base = window.location.origin + window.location.pathname;
+  if (window.location.search) {
+    window.location.href = base;
+    return;
+  }
+  document.getElementById('filterForm').reset();
+  document.getElementById('searchTable').value = '';
+  currentBaseRows = rowsAll.slice(); // restaura tudo
+  currentPage = 1;
+  displayPage(currentPage, '');
+  showToast('Filtros limpos.');
 });
 
-// Filtro instantâneo
+/* Busca rápida (cliente) — filtra dentro do currentBaseRows */
 document.getElementById('searchTable').addEventListener('keyup', function(){
-    currentPage = 1;
-    displayPage(currentPage, this.value.toLowerCase());
+  currentPage = 1;
+  displayPage(currentPage, normalizeText(this.value));
 });
 
-// Ordenação da tabela
+/* Ordenação: atua sobre currentBaseRows para manter consistência com paginação */
 document.querySelectorAll('#ocorrenciasTable th').forEach(th => {
-    th.addEventListener('click', () => {
-        const table = th.closest('table');
-        const tbody = table.querySelector('tbody');
-        Array.from(tbody.querySelectorAll('tr'))
-        .sort((a,b) => {
-            const col = Array.from(th.parentNode.children).indexOf(th);
-            const aText = a.children[col].textContent.trim();
-            const bText = b.children[col].textContent.trim();
-            if(!isNaN(Date.parse(aText)) && !isNaN(Date.parse(bText))){
-                return new Date(aText) - new Date(bText);
-            }
-            return aText.localeCompare(bText);
-        })
-        .forEach(tr => tbody.appendChild(tr));
-        displayPage(currentPage);
-    });
+  th.addEventListener('click', () => {
+    const col = Array.from(th.parentNode.children).indexOf(th);
+    /* clona e ordena base atual */
+    currentBaseRows = currentBaseRows
+      .slice()
+      .sort((a,b) => {
+        const aRaw = a.children[col].textContent.trim();
+        const bRaw = b.children[col].textContent.trim();
+        const aN = normalizeText(aRaw);
+        const bN = normalizeText(bRaw);
+        if (aN < bN) return -1;
+        if (aN > bN) return 1;
+        return 0;
+      });
+    displayPage(currentPage, normalizeText(document.getElementById('searchTable').value));
+  });
 });
 
-// Paginação + filtro
+/* Paginação + filtro rápido (usa currentBaseRows) */
 function displayPage(page, filter = '') {
-    const tbody = document.querySelector('#ocorrenciasTable tbody');
-    tbody.innerHTML = '';
-    const rowsVisible = rowsAll.filter(row => row.textContent.toLowerCase().includes(filter));
-    if(rowsVisible.length === 0) showToast('Nenhum resultado encontrado!');
-    const start = (page -1) * rowsPerPage;
-    const end = start + rowsPerPage;
-    rowsVisible.slice(start, end).forEach(row => tbody.appendChild(row));
-    renderPagination(rowsVisible.length);
+  const tbody = document.querySelector('#ocorrenciasTable tbody');
+  tbody.innerHTML = '';
+
+  const rowsVisible = currentBaseRows.filter(tr => {
+    if (!filter) return true;
+    return tr.dataset.norm.includes(filter);
+  });
+
+  if (rowsVisible.length === 0) showToast('Nenhum resultado encontrado!');
+
+  const start = (page - 1) * rowsPerPage;
+  const end = start + rowsPerPage;
+  rowsVisible.slice(start, end).forEach(tr => tbody.appendChild(tr));
+
+  renderPagination(rowsVisible.length, filter);
 }
 
-// Renderiza botões de paginação
-function renderPagination(totalRows) {
-    const totalPages = Math.ceil(totalRows / rowsPerPage);
-    const pagination = document.getElementById('pagination');
-    pagination.innerHTML = '';
-    for(let i=1;i<=totalPages;i++){
-        const btn = document.createElement('button');
-        btn.textContent = i;
-        if(i === currentPage) btn.classList.add('active');
-        btn.addEventListener('click', ()=> {
-            currentPage = i;
-            displayPage(currentPage, document.getElementById('searchTable').value.toLowerCase());
-        });
-        pagination.appendChild(btn);
+function renderPagination(totalRows, filter) {
+  const totalPages = Math.ceil(totalRows / rowsPerPage) || 1;
+  const pagination = document.getElementById('pagination');
+  pagination.innerHTML = '';
+  for (let i = 1; i <= totalPages; i++) {
+    const btn = document.createElement('button');
+    btn.textContent = i;
+    if (i === currentPage) btn.classList.add('active');
+    btn.addEventListener('click', () => {
+      currentPage = i;
+      displayPage(currentPage, filter);
+    });
+    pagination.appendChild(btn);
+  }
+}
+function buildPdfQuery() {
+    const form = document.getElementById('filterForm');
+    const fd = new FormData(form);
+    const params = new URLSearchParams();
+
+    // adiciona só os campos preenchidos
+    for (const [k, v] of fd.entries()) {
+      if (v && v.trim() !== '') params.append(k, v.trim());
     }
-}
 
-// Inicializa primeira página
+    // (opcional) incluir a pesquisa rápida como "q"
+    const q = document.getElementById('searchTable').value;
+    if (q && q.trim() !== '') params.append('q', q.trim());
+
+    return params.toString();
+  }
+
+  document.getElementById('btnPdf').addEventListener('click', () => {
+    const qs = buildPdfQuery();
+    const url = "{% url 'relatorio_pdf' %}" + (qs ? `?${qs}` : '');
+    window.location.href = url;
+  });
+  
+/* inicializa primeira renderização */
 displayPage(currentPage);
 </script>
 
+<footer>
+  <p>&copy; 2025 UNIVESP - PROJETO INTEGRADOR EM COMPUTAÇÃO II - Todos os direitos reservados</p>
+</footer>
 </body>
 </html>
