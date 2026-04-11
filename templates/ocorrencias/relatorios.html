@@ -22,9 +22,9 @@
     #toast { position: fixed; top: 20px; right: 20px; min-width: 250px; background-color: rgba(251,140,0,.95); color: white; text-align: center; border-radius: 10px; padding: 16px 20px; box-shadow: 0 4px 12px rgba(0,0,0,.3); opacity: 0; transform: translateY(-20px); transition: opacity .5s ease, transform .5s ease; z-index: 9999; }
     #toast.show { opacity: 1; transform: translateY(0); }
     #searchTable { margin-bottom:15px; padding:8px; width:300px; border-radius:5px; border:1px solid #ccc; font-size:1em; }
-    .pagination { margin: 15px 0; display: flex; justify-content: center; gap: 5px; }
-    .pagination button { padding: 6px 12px; border-radius: 5px; border: 1px solid #ccc; background: #fb8c00; color: white; cursor: pointer; }
-    .pagination button.active { background: #f57c00; }
+    .pagination{margin:10px 0; display:flex; justify-content:center; gap:5px;}
+    .pagination button{padding:6px 12px; border-radius:5px; border:1px solid #ccc; background:#fb8c00; color:#fff; cursor:pointer;}
+    .pagination button.active{background:#f57c00;}
 </style>
 
 </head>
@@ -258,15 +258,45 @@ function renderPagination(totalRows, filter) {
   const totalPages = Math.ceil(totalRows / rowsPerPage) || 1;
   const pagination = document.getElementById('pagination');
   pagination.innerHTML = '';
-  for (let i = 1; i <= totalPages; i++) {
+
+  const maxVisible = 5;
+
+  function createBtn(i){
     const btn = document.createElement('button');
     btn.textContent = i;
     if (i === currentPage) btn.classList.add('active');
-    btn.addEventListener('click', () => {
+    btn.onclick = () => {
       currentPage = i;
       displayPage(currentPage, filter);
-    });
-    pagination.appendChild(btn);
+    };
+    return btn;
+  }
+
+  // sempre primeira página
+  pagination.appendChild(createBtn(1));
+
+  let start = Math.max(2, currentPage - Math.floor(maxVisible/2));
+  let end = Math.min(totalPages - 1, currentPage + Math.floor(maxVisible/2));
+
+  if (start > 2) {
+    const span = document.createElement('span');
+    span.textContent = '...';
+    pagination.appendChild(span);
+  }
+
+  for (let i = start; i <= end; i++) {
+    pagination.appendChild(createBtn(i));
+  }
+
+  if (end < totalPages - 1) {
+    const span = document.createElement('span');
+    span.textContent = '...';
+    pagination.appendChild(span);
+  }
+
+  // sempre última
+  if (totalPages > 1) {
+    pagination.appendChild(createBtn(totalPages));
   }
 }
 function buildPdfQuery() {

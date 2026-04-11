@@ -13,8 +13,8 @@
     .logo { width:120px; margin-bottom:10px; }
     .form-container { display:flex; justify-content:center; padding:40px 20px; }
     form { display:flex; flex-direction:column; gap:20px; max-width:800px; width:100%; background:#fff; padding:40px; border-radius:16px; box-shadow:0 8px 16px rgba(0,0,0,.15); position:relative; }
-    .form-row { display:flex; gap:20px; flex-wrap:wrap; width:100%; }
-    .form-group { display:flex; flex-direction:column; }
+    .form-row {  display:flex;  gap:20px;  flex-wrap:wrap;  width:100%;  align-items: flex-end;}
+    .form-group { display:flex; flex-direction:column; justify-content:flex-end; }
     .small { flex:0 0 120px; }
     .medium { flex:1; min-width:200px; }
     .large { flex:2; min-width:400px; }
@@ -32,246 +32,198 @@
 <body>
   <header>
     <img src="https://www.prefeitura.sp.gov.br/cidade/secretarias/upload/comunicacao/noticias/defesacivil.jpg" alt="Logo Defesa Civil São Paulo" class="logo">
-    <h3>CADASTRO DE OCORRÊNCIA</h3>
+    <div>CADASTRO DE OCORRÊNCIA</div>
   </header>
 
-  <div class="form-container">
-    <form method="POST" action="{% url 'salvar_ocorrencia' %}">
-      {% csrf_token %}
+<div class="form-container">
+<form method="POST" action="{% url 'salvar_ocorrencia' %}">
+{% csrf_token %}
 
-      {# A) Messages framework #}
-      {% if messages %}
-        <div class="alert" role="alert" aria-live="assertive">
-          {% for message in messages %}
-            {{ message }}
-          {% endfor %}
-        </div>
-      {% endif %}
+<div class="form-row">
+<div class="form-group small">
+<label>FOC</label>
+{{ form.numero }}
+</div>
 
-      {# B) Erros gerais do form (add_error(None, ...)/clean()) #}
-      {% if form.non_field_errors %}
-        <div class="alert" role="alert" aria-live="assertive">
-          {% for err in form.non_field_errors %}
-            {{ err }}
-          {% endfor %}
-        </div>
-      {% endif %}
+<div class="form-group small">
+<label>SIGRC</label>
+{{ form.sigrc }}
+</div>
 
-      {# C) Lista de erros por campo #}
-      {% if form.errors %}
-        <div class="alert" role="alert" aria-live="assertive">
-          <ul style="margin:0; padding-left:18px;">
-            {% for bf in form %}
-              {% for error in bf.errors %}
-                <li><strong>{{ bf.label }}:</strong> {{ error }}</li>
-              {% endfor %}
-            {% endfor %}
-          </ul>
-        </div>
-      {% endif %}
+<div class="top-buttons">
+<button type="submit" class="submit-btn">Salvar</button>
+<a href="{% url 'home' %}">
+<button type="button" class="back-btn">Voltar</button>
+</a>
+</div>
+</div>
 
-      <div class="form-row">
-        <div class="form-group small">
-          <label for="{{ form.numero.id_for_label }}">FOC N.º</label>
-          {{ form.numero }}
-          {% for error in form.numero.errors %}
-            <small class="field-error">{{ error }}</small>
-          {% endfor %}
-        </div>
+<div class="form-row">
+<div class="form-group large">
+{{ form.endereco.label_tag }}
+{{ form.endereco }}
+</div>
+</div>
 
-        <div class="form-group small">
-          <label for="{{ form.sigrc.id_for_label }}">SIGRC N.º</label>
-          {{ form.sigrc }}
-          {% for error in form.sigrc.errors %}
-            <small class="field-error">{{ error }}</small>
-          {% endfor %}
-        </div>
+<div class="form-row">
+<div class="form-group medium">
+{{ form.bairro.label_tag }}
+{{ form.bairro }}
+</div>
 
-        <div class="top-buttons">
-          <button type="submit" class="submit-btn">💾 Salvar</button>
-          <a href="{% url 'home' %}" style="text-decoration:none;">
-            <button type="button" class="back-btn">⬅ Voltar</button>
-          </a>
-        </div>
-      </div>
+<div class="form-group medium">
+<select name="distrito">
+<option>Selecione</option>
+<option>Jardim Ângela</option>
+<option>Jardim São Luís</option>
+</select>
+</div>
+</div>
 
-      <div class="form-row">
-        <div class="form-group large">
-          {{ form.endereco.label_tag }}
-          {{ form.endereco }}
-          {% for error in form.endereco.errors %}
-            <small class="field-error">{{ error }}</small>
-          {% endfor %}
-        </div>
-      </div>
+<div class="form-row">
+<div class="form-group small">
+<select name="area_risco">
+<option value="0">0</option>
+<option value="1">1</option>
+<option value="2">2</option>
+<option value="3">3</option>
+<option value="4">4</option>
+</select>
+</div>
 
-      <div class="form-row">
-        <div class="form-group medium">
-          {{ form.bairro.label_tag }}
-          {{ form.bairro }}
-          {% for error in form.bairro.errors %}
-            <small class="field-error">{{ error }}</small>
-          {% endfor %}
-        </div>
+<div class="form-group large">
+  <label for="motivo">Motivo</label>
+  <select name="motivo" id="motivo" required>
+    {% with val=form.motivo.value %}
+      <option value="">Selecione</option>
+      <option value="Erosão na via" {% if val == 'Erosão na via' %}selected{% endif %}>Erosão na via</option>
+      <option value="Deslizamento" {% if val == 'Deslizamento' %}selected{% endif %}>Deslizamento</option>
+      <option value="Desabamento" {% if val == 'Desabamento' %}selected{% endif %}>Desabamento</option>
+      <option value="Rachadura em Edificação" {% if val == 'Rachadura em Edificação' %}selected{% endif %}>Rachadura em edificação</option>
+      <option value="Risco de desabamento" {% if val == 'Risco de desabamento' %}selected{% endif %}>Risco de desabamento</option>
+      <option value="Risco de queda de árvore" {% if val == 'Risco de queda de árvore' %}selected{% endif %}>Risco de queda de árvore</option>
+      <option value="Queda de árvore" {% if val == 'Queda de árvore' %}selected{% endif %}>Queda de árvore</option>
+      <option value="Alagamento" {% if val == 'Alagamento' %}selected{% endif %}>Alagamento</option>
+      <option value="Inundação" {% if val == 'Inundação' %}selected{% endif %}>Inundação</option>
+      <option value="Outros" {% if val == 'Outros' %}selected{% endif %}>Outros</option>
+    {% endwith %}
+  </select>
+</div>
 
-        <div class="form-group medium">
-          <label for="distrito">Distrito</label>
-          <select name="distrito" id="distrito" required>
-            <option value="">Selecione</option>
-            <option value="Jd. Angela" {% if form.distrito.value == 'Jd. Angela' %}selected{% endif %}>Jardim Ângela</option>
-            <option value="Jd. São Luis" {% if form.distrito.value == 'Jd. São Luis' %}selected{% endif %}>Jardim São Luís</option>
-          </select>
-          {% for error in form.distrito.errors %}
-            <small class="field-error">{{ error }}</small>
-          {% endfor %}
-        </div>
-      </div>
+<div class="form-group small">
+<input type="date" name="data">
+</div>
+</div>
 
-      <div class="form-row">
-        <div class="form-group small">
-          <label for="area_risco">Área de Risco</label>
-          <select id="area_risco" name="area_risco" required>
-            <option value="">Selecione</option>
-            <option value="0" {% if form.area_risco.value|stringformat:'s' == '0' %}selected{% endif %}>0</option>
-            <option value="1" {% if form.area_risco.value|stringformat:'s' == '1' %}selected{% endif %}>1</option>
-            <option value="2" {% if form.area_risco.value|stringformat:'s' == '2' %}selected{% endif %}>2</option>
-            <option value="3" {% if form.area_risco.value|stringformat:'s' == '3' %}selected{% endif %}>3</option>
-            <option value="4" {% if form.area_risco.value|stringformat:'s' == '4' %}selected{% endif %}>4</option>
-          </select>
-          {% for error in form.area_risco.errors %}
-            <small class="field-error">{{ error }}</small>
-          {% endfor %}
-        </div>
+<div class="form-row">
+<div class="form-group medium">
+<input type="text" id="latitude" name="latitude" readonly>
+</div>
 
-        <div class="form-group large">
-          <label for="motivo">Motivo</label>
-          <select name="motivo" id="motivo" required>
-            {% with val=form.motivo.value %}
-              <option value="">Selecione</option>
-              <option value="Erosão na via" {% if val == 'Erosão na via' %}selected{% endif %}>Erosão na via</option>
-              <option value="Deslizamento" {% if val == 'Deslizamento' %}selected{% endif %}>Deslizamento</option>
-              <option value="Desabamento" {% if val == 'Desabamento' %}selected{% endif %}>Desabamento</option>
-              <option value="Rachadura em Edificação" {% if val == 'Rachadura em Edificação' %}selected{% endif %}>Rachadura em edificação</option>
-              <option value="Risco de desabamento" {% if val == 'Risco de desabamento' %}selected{% endif %}>Risco de desabamento</option>
-              <option value="Risco de queda de árvore" {% if val == 'Risco de queda de árvore' %}selected{% endif %}>Risco de queda de árvore</option>
-              <option value="Queda de árvore" {% if val == 'Queda de árvore' %}selected{% endif %}>Queda de árvore</option>
-              <option value="Alagamento" {% if val == 'Alagamento' %}selected{% endif %}>Alagamento</option>
-              <option value="Inundação" {% if val == 'Inundação' %}selected{% endif %}>Inundação</option>
-              <option value="Outros" {% if val == 'Outros' %}selected{% endif %}>Outros</option>
-            {% endwith %}
-          </select>
-          {% for error in form.motivo.errors %}
-            <small class="field-error">{{ error }}</small>
-          {% endfor %}
-        </div>
+<div class="form-group medium">
+<input type="text" id="longitude" name="longitude" readonly>
+</div>
+</div>
 
-        <div class="form-group small">
-          <label for="data">Data</label>
-          <input type="date" id="data" name="data" required value="{{ form.data.value|default_if_none:'' }}">
-          {% for error in form.data.errors %}
-            <small class="field-error">{{ error }}</small>
-          {% endfor %}
-        </div>
-      </div>
+<div id="map"></div>
 
-      <div class="form-row">
-        <div class="form-group medium">
-          <label for="latitude">Latitude</label>
-          <input type="text" id="latitude" name="latitude" readonly required value="{{ form.latitude.value|default_if_none:'' }}">
-          {% for error in form.latitude.errors %}
-            <small class="field-error">{{ error }}</small>
-          {% endfor %}
-        </div>
-        <div class="form-group medium">
-          <label for="longitude">Longitude</label>
-          <input type="text" id="longitude" name="longitude" readonly required value="{{ form.longitude.value|default_if_none:'' }}">
-          {% for error in form.longitude.errors %}
-            <small class="field-error">{{ error }}</small>
-          {% endfor %}
-        </div>
-      </div>
+</form>
+</div>
 
-      <div id="map"></div>
-    </form>
-  </div>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script>
-    var map = L.map('map').setView([-23.66761, -46.72835], 11);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
-    var marker = L.marker([-23.66761, -46.72835], { draggable: true }).addTo(map);
+<script>
+// -------- MAPA --------
 
-    marker.on('dragend', function () {
-      var latlng = marker.getLatLng();
-      document.getElementById("latitude").value = latlng.lat.toFixed(7);
-      document.getElementById("longitude").value = latlng.lng.toFixed(7);
-    });
+// camadas
+var mapa = L.tileLayer(
+  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
+);
 
-    map.on('click', function (e) {
-      var lat = e.latlng.lat, lng = e.latlng.lng;
-      marker.setLatLng([lat, lng]);
+var satelite = L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+);
+
+// mapa inicia em satélite
+var map = L.map('map',{
+  center:[-23.66761, -46.72835],
+  zoom:11,
+  layers:[satelite]
+});
+
+// controle
+L.control.layers({
+  "Mapa": mapa,
+  "Satélite": satelite
+}).addTo(map);
+
+// 🔥 MARCADOR (ESSENCIAL)
+var marker = L.marker([-23.66761, -46.72835], { draggable: true }).addTo(map);
+
+// -------- EVENTOS --------
+
+// arrastar marcador
+marker.on('dragend', function () {
+  var latlng = marker.getLatLng();
+  document.getElementById("latitude").value = latlng.lat.toFixed(7);
+  document.getElementById("longitude").value = latlng.lng.toFixed(7);
+});
+
+// clicar no mapa
+map.on('click', function (e) {
+  var lat = e.latlng.lat;
+  var lng = e.latlng.lng;
+
+  marker.setLatLng([lat, lng]);
+  map.setView([lat, lng], 16);
+
+  document.getElementById("latitude").value = lat.toFixed(7);
+  document.getElementById("longitude").value = lng.toFixed(7);
+});
+
+// -------- BUSCA DE ENDEREÇO --------
+
+async function buscarEndereco() {
+  var enderecoInput = document.getElementById("id_endereco");
+  if (!enderecoInput) return;
+
+  var endereco = enderecoInput.value;
+  if (!endereco) return;
+
+  try {
+    var url = 'https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=' 
+              + encodeURIComponent(endereco + ', São Paulo, Brasil');
+
+    var response = await fetch(url, { headers: { 'Accept-Language': 'pt-BR' } });
+    var data = await response.json();
+
+    if (data && data.length > 0) {
+
+      var lat = parseFloat(data[0].lat);
+      var lon = parseFloat(data[0].lon);
+
+      marker.setLatLng([lat, lon]);
+      map.setView([lat, lon], 16);
+
       document.getElementById("latitude").value = lat.toFixed(7);
-      document.getElementById("longitude").value = lng.toFixed(7);
-    });
+      document.getElementById("longitude").value = lon.toFixed(7);
 
-    async function buscarEndereco() {
-      var enderecoInput = document.getElementById("id_endereco");
-      if (!enderecoInput) return;
-      var endereco = enderecoInput.value;
-      if (!endereco) return;
-
-      try {
-        var url = 'https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=' + encodeURIComponent(endereco + ', São Paulo, Brasil');
-        var response = await fetch(url, { headers: { 'Accept-Language': 'pt-BR' } });
-        var data = await response.json();
-
-        if (data && data.length > 0) {
-          var result = data.find(function (item) {
-            return item.address.city === 'São Paulo' || item.address.state_district === 'São Paulo';
-          });
-          if (result) {
-            var lat = parseFloat(result.lat);
-            var lon = parseFloat(result.lon);
-            marker.setLatLng([lat, lon]);
-            map.setView([lat, lon], 16);
-            document.getElementById("latitude").value = lat.toFixed(7);
-            document.getElementById("longitude").value = lon.toFixed(7);
-          } else {
-            alert("ATENÇÃO! ENDEREÇO ENCONTRADO FORA DA CIDADE DE SÃO PAULO. CONFIRME SE FOI DIGITADO CORRETAMENTE OU COLOQUE MAIS INFORMAÇÕES PARA BUSCA");
-          }
-        } else {
-          alert("ENDEREÇO NÃO ENCONTRADO");
-        }
-      } catch (error) {
-        console.error("Erro ao buscar endereço:", error);
-        alert("Erro ao buscar endereço. Tente novamente.");
-      }
+    } else {
+      alert("ENDEREÇO NÃO ENCONTRADO");
     }
 
-    (function () {
-      var formEl = document.querySelector('form');
-      if (!formEl) return;
-      formEl.addEventListener('submit', function (e) {
-        var latEl = document.getElementById('latitude');
-        var lonEl = document.getElementById('longitude');
-        var lat = (latEl ? latEl.value : '').trim();
-        var lon = (lonEl ? lonEl.value : '').trim();
-        if (latEl) latEl.setCustomValidity('');
-        if (lonEl) lonEl.setCustomValidity('');
-        if (!lat || !lon) {
-          e.preventDefault();
-          if (latEl) latEl.setCustomValidity('Obrigatório: selecione no mapa ou busque o endereço.');
-          if (lonEl) lonEl.setCustomValidity('Obrigatório: selecione no mapa ou busque o endereço.');
-          formEl.reportValidity();
-        }
-      });
-    })();
+  } catch (error) {
+    console.error("Erro:", error);
+    alert("Erro ao buscar endereço");
+  }
+}
 
-    var enderecoField = document.getElementById("id_endereco");
-    if (enderecoField) {
-      enderecoField.addEventListener("blur", buscarEndereco);
-    }
-  </script>
+// evento ao sair do campo
+var enderecoField = document.getElementById("id_endereco");
+if (enderecoField) {
+  enderecoField.addEventListener("blur", buscarEndereco);
+}
+</script>
 
   <footer>
     <p>&copy; 2025 UNIVESP - PROJETO INTEGRADOR EM COMPUTAÇÃO I e II - Todos os direitos reservados</p>
