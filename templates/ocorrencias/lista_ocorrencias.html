@@ -5,314 +5,249 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Lista de Registros</title>
+
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"/>
+
 <style>
 body { font-family:'Rubik',sans-serif; background:#fff3e0; margin:0; padding:0; color:#333; }
 header { background:#ff9800; color:white; text-align:center; padding:20px 0; font-size:2em; box-shadow:0 4px 6px rgba(0,0,0,0.2);}
 .logo{width:120px;margin-bottom:10px}
 .container{padding:20px;display:flex;flex-direction:column;align-items:center}
-
-/* mantém o mapa no plano de fundo */
-#map{
-  height:500px;width:100%;max-width:1200px;border-radius:12px;margin-bottom:20px;
-  z-index: 1;
-}
+#map{height:500px;width:100%;max-width:1200px;border-radius:12px;margin-bottom:20px;}
 .table-responsive{width:100%;overflow-x:auto}
 table{width:100%;min-width:900px;margin-top:20px;border-collapse:collapse;background:#fff;box-shadow:0 8px 16px rgba(0,0,0,0.15)}
-th,td{padding:10px;text-align:center;border:1px solid #ddd; cursor: pointer;}
+th,td{padding:10px;text-align:center;border:1px solid #ddd; cursor:pointer;}
 th{background:#ff9800;color:#fff}
 tr:nth-child(even){background:#f9f9f9}
-.btn{padding:10px 20px;font-size:0.9em;margin:2px;cursor:pointer;border:none;border-radius:20px;background:#fb8c00;color:#fff; display:inline-block;}
+.btn{padding:10px 20px;font-size:0.9em;margin:2px;cursor:pointer;border:none;border-radius:20px;background:#fb8c00;color:#fff;}
 .btn-danger{background:red}
 footer{text-align:center;padding:20px;background:#333;color:#fff;font-size:0.9em}
-input[type="text"], input[type="date"]{padding:6px 8px; width:250px; border-radius:6px; border:1px solid #ccc;}
-
-/* Modal acima de tudo */
-.modal{
-  display:none;position:fixed;top:0;left:0;width:100%;height:100%;
-  background:rgba(0,0,0,0.5);justify-content:center;align-items:center;
-  z-index: 20000; /* garante que fica acima do mapa e da UI */
-}
-.modal-content{
-  background:white;padding:20px;border-radius:12px;min-width:300px;max-width:600px;position:relative;
-  z-index: 20001; /* conteúdo acima do backdrop */
-}
-.modal-close{position:absolute;top:10px;right:10px;cursor:pointer;font-weight:bold;}
-.toast{position:fixed;bottom:20px;right:20px;padding:15px 25px;background:#333;color:white;border-radius:8px;display:none;z-index:1000;}
-#searchInput{margin-bottom:15px;}
+input[type="text"]{padding:6px 8px;width:250px;border-radius:6px;border:1px solid #ccc;}
 .pagination{margin:10px 0; display:flex; justify-content:center; gap:5px;}
 .pagination button{padding:6px 12px; border-radius:5px; border:1px solid #ccc; background:#fb8c00; color:#fff; cursor:pointer;}
 .pagination button.active{background:#f57c00;}
 </style>
 </head>
+
 <body>
+
 <header>
-  <div>
-    <img src="https://www.prefeitura.sp.gov.br/cidade/secretarias/upload/comunicacao/noticias/defesacivil.jpg" alt="Logo Defesa Civil São Paulo" class="logo">
-  </div>
+  <img src="https://www.prefeitura.sp.gov.br/cidade/secretarias/upload/comunicacao/noticias/defesacivil.jpg" class="logo">
   Lista de Registros
 </header>
 
 <div class="container">
-  <!-- Mapa -->
-  <div id="map"></div>
 
-  <!-- Filtro rápido -->
-  <input type="text" id="searchInput" placeholder="Pesquisar na tabela...">
+<div id="map"></div>
 
-  <div class="table-responsive">
-    <table id="ocorrenciasTable">
-      <thead>
-        <tr>
-          <th data-column="numero">FOC N.º</th>
-          <th data-column="sigrc">SIGRC N.º</th>
-          <th data-column="endereco">Endereço</th>
-          <th data-column="bairro">Bairro</th>
-          <th data-column="distrito">Distrito</th>
-          <th data-column="area_risco">Área de Risco</th>
-          <th data-column="motivo">Motivo</th>
-          <th data-column="data">Data</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for ocorrencia in ocorrencias %}
-        <tr data-id="{{ ocorrencia.id }}">
-          <td>{{ ocorrencia.numero }}</td>
-          <td>{{ ocorrencia.sigrc }}</td>
-          <td>{{ ocorrencia.endereco }}</td>
-          <td>{{ ocorrencia.bairro }}</td>
-          <td>{{ ocorrencia.distrito }}</td>
-          <td>{{ ocorrencia.area_risco }}</td>
-          <td>{{ ocorrencia.motivo }}</td>
-          <td>{{ ocorrencia.data|date:'d/m/Y' }}</td>
-          <td>
-            <button class="btn editBtn">Editar</button>
-            <a href="{% url 'excluir_ocorrencia' ocorrencia.id %}" class="btn btn-danger" onclick="return confirm('Deseja excluir?')">Excluir</a>
-          </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="9">Nenhuma ocorrência registrada.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+<input type="text" id="searchInput" placeholder="Pesquisar...">
 
-  <!-- Paginação -->
-  <div class="pagination" id="pagination"></div>
-
-  <a href="{% url 'home' %}" class="btn">VOLTAR</a>
+<div class="table-responsive">
+<table id="ocorrenciasTable">
+<thead>
+<tr>
+<th>FOC</th><th>SIGRC</th><th>Endereço</th><th>Bairro</th>
+<th>Distrito</th><th>Risco</th><th>Motivo</th><th>Data</th>
+</tr>
+</thead>
+<tbody>
+{% for oc in ocorrencias %}
+<tr data-id="{{ oc.id }}">
+<td>{{ oc.numero }}</td>
+<td>{{ oc.sigrc }}</td>
+<td>{{ oc.endereco }}</td>
+<td>{{ oc.bairro }}</td>
+<td>{{ oc.distrito }}</td>
+<td>{{ oc.area_risco }}</td>
+<td>{{ oc.motivo }}</td>
+<td>{{ oc.data|date:'d/m/Y' }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
 </div>
 
-<!-- Modal -->
-<div id="editModal" class="modal">
-  <div class="modal-content">
-    <span class="modal-close">&times;</span>
-    <h3>Editar Ocorrência</h3>
-    <form id="editForm" method="post">
-      {% csrf_token %}
-      <label>FOC N.º</label><br><input type="text" name="numero"><br>
-      <label>SIGRC N.º</label><br><input type="text" name="sigrc"><br>
-      <label>Endereço</label><br><input type="text" name="endereco"><br>
-      <label>Bairro</label><br><input type="text" name="bairro"><br>
-      <label>Distrito</label><br><input type="text" name="distrito"><br>
-      <label>Área de Risco</label><br><input type="text" name="area_risco"><br>
-      <label>Motivo</label><br><input type="text" name="motivo"><br>
-      <label>Data</label><br><input type="date" name="data"><br><br>
-      <button type="submit" class="btn">Salvar</button>
-    </form>
-  </div>
-</div>
+<div class="pagination" id="pagination"></div>
 
-<div id="toast" class="toast"></div>
+</div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+
 <script>
-  // -------- MAPA --------
-  var map = L.map('map').setView([-23.682, -46.875], 11);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution:'© OpenStreetMap contributors'}).addTo(map);
+// -------- MAPA --------
+var mapa = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
+var satelite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
 
-  var coresRisco = {"0":"green","1":"yellow","2":"orange","3":"red","4":"darkred"};
-  var marcadores = [];
-  var markersById = {}; // id -> marker
+var map = L.map('map',{center:[-23.682,-46.875],zoom:11,layers:[mapa]});
 
-  var ocorrenciasData = [
-    {% for oc in ocorrencias %}
-    {
-      id: {{ oc.id }},
-      endereco: "{{ oc.endereco|escapejs }}",
-      motivo: "{{ oc.motivo|escapejs }}",
-      area_risco: "{{ oc.area_risco }}",
-      lat: "{{ oc.latitude }}",
-      lon: "{{ oc.longitude }}"
-    }{% if not forloop.last %},{% endif %}
-    {% endfor %}
-  ];
+L.control.layers({"Mapa":mapa,"Satélite":satelite}).addTo(map);
 
-  ocorrenciasData.forEach(function(oc){
-    var lat=parseFloat(String(oc.lat).replace(',', '.'));
-    var lon=parseFloat(String(oc.lon).replace(',', '.'));
-    if(isFinite(lat)&&isFinite(lon)){
-      var cor=coresRisco[oc.area_risco]||"blue";
-      var marker=L.circleMarker([lat,lon],{color:cor,radius:8,fillOpacity:0.9,weight:1});
-      marker.bindPopup("<strong>"+oc.endereco+"</strong><br>"+oc.motivo+"<br>Área de risco: "+oc.area_risco);
-      marker.addTo(map);
-      marcadores.push(marker);
-      markersById[oc.id] = marker;
-    }
-  });
+// CLUSTER
+var markersById = {};
+var cores = {"0":"green","1":"yellow","2":"orange","3":"red","4":"darkred"};
 
-  if(marcadores.length>0){
-    try { map.fitBounds(L.featureGroup(marcadores).getBounds().pad(0.2)); } catch(e){}
+// DADOS
+var dados = [
+{% for oc in ocorrencias %}
+{
+ id:{{ oc.id }},
+ lat:"{{ oc.latitude }}",
+ lon:"{{ oc.longitude }}",
+ risco:"{{ oc.area_risco }}",
+ endereco:"{{ oc.endereco|escapejs }}",
+ numero:"{{ oc.numero }}",
+ motivo:"{{ oc.motivo|escapejs }}"
+}{% if not forloop.last %},{% endif %}
+{% endfor %}
+];
+
+// MARCADORES
+dados.forEach(d=>{
+ var lat=parseFloat(String(d.lat).replace(',', '.'));
+ var lon=parseFloat(String(d.lon).replace(',', '.'));
+
+ if(isFinite(lat)&&isFinite(lon)){
+  var m=L.circleMarker([lat,lon],{color:cores[d.risco]||"blue",radius:8})
+  .bindPopup(
+ "<strong>FOC:</strong> " + d.numero + "<br>" +
+ "<strong>Endereço:</strong> " + d.endereco + "<br>" +
+ "<strong>Motivo:</strong> " + d.motivo
+);
+
+  m.addTo(map);
+  markersById[d.id]=m;
+ }
+});
+
+// -------- LEGENDA --------
+var legend=L.control({position:'bottomright'});
+legend.onAdd=function(){
+ var div=L.DomUtil.create('div');
+ div.style.background="white";
+ div.style.padding="10px";
+ div.innerHTML="<b>Risco</b><br>🟢 Baixo<br>🟡 Médio<br>🟠 Alto<br>🔴 Muito Alto<br>";
+ return div;
+};
+legend.addTo(map);
+
+// -------- PAGINAÇÃO (CORRIGIDA) --------
+const rowsAll = Array.from(document.querySelectorAll('#ocorrenciasTable tbody tr'));
+rowsAll.forEach(row=>{
+  row.dataset.norm = normalizeText(row.textContent);
+});
+const rowsPerPage = 10;
+let currentPage = 1;
+
+function displayPage(page, filter=''){
+ const tbody = document.querySelector('#ocorrenciasTable tbody');
+ tbody.innerHTML = '';
+
+const filtered = rowsAll.filter(row => row.dataset.norm.includes(filter));
+ const start=(page-1)*rowsPerPage;
+ const end=start+rowsPerPage;
+
+ filtered.slice(start,end).forEach(row => tbody.appendChild(row));
+
+ renderPagination(filtered.length);
+
+// remove todos os marcadores
+for (let id in markersById){
+ map.removeLayer(markersById[id]);
+}
+
+// adiciona TODOS os filtrados (não só da página)
+filtered.forEach(row=>{
+ const id=parseInt(row.dataset.id);
+ if(markersById[id]) markersById[id].addTo(map);
+});
+let visibleMarkers = [];
+
+filtered.forEach(row=>{
+  const id = parseInt(row.dataset.id);
+  if(markersById[id]){
+    visibleMarkers.push(markersById[id]);
   }
+});
 
-  // Mostra apenas marcadores cujos IDs estiverem visíveis na tabela filtrada
-  function updateMapVisible(visibleIdsSet){
-    var visibleMarkers = [];
-    for (var idStr in markersById){
-      var id = parseInt(idStr);
-      var mk = markersById[idStr];
-      if (visibleIdsSet.has(id)){
-        if (!map.hasLayer(mk)) mk.addTo(map);
-        visibleMarkers.push(mk);
-      } else {
-        if (map.hasLayer(mk)) map.removeLayer(mk);
-      }
-    }
-    if (visibleMarkers.length > 0){
-      try { map.fitBounds(L.featureGroup(visibleMarkers).getBounds().pad(0.2)); } catch(e){}
-    }
-  }
+if(visibleMarkers.length > 0){
+  try{
+    const group = L.featureGroup(visibleMarkers);
+    map.fitBounds(group.getBounds().pad(0.2));
+  }catch(e){}
+}
+}
+function normalizeText(str){
+  if(!str) return '';
+  let s = String(str);
 
-  // -------- TABELA / UI --------
-  function showToast(msg){
-    var toast=document.getElementById("toast");
-    toast.textContent=msg;
-    toast.style.display="block";
-    setTimeout(()=>{toast.style.display="none";},3000);
-  }
+  try{
+    s = s.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  }catch(e){}
 
-  // Normalização (sem acentos e sem diferença de maiúsc/minúsc)
-  function normalizeText(str){
-    if(!str) return '';
-    let s = String(str);
-    try{
-      s = s.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-    }catch(e){}
-    const map = {Á:'A',À:'A',Â:'A',Ã:'A',Ä:'A',Å:'A',á:'a',à:'a',â:'a',ã:'a',ä:'a',å:'a',
-                 É:'E',È:'E',Ê:'E',Ë:'E',é:'e',è:'e',ê:'e',ë:'e',
-                 Í:'I',Ì:'I',Î:'I',Ï:'I',í:'i',ì:'i',î:'i',ï:'i',
-                 Ó:'O',Ò:'O',Ô:'O',Õ:'O',Ö:'O',ó:'o',ò:'o',ô:'o',õ:'o',ö:'o',
-                 Ú:'U',Ù:'U',Û:'U',Ü:'U',ú:'u',ù:'u',û:'u',ü:'u',
-                 Ç:'C',ç:'c',Ñ:'N',ñ:'n','º':'o','ª':'a'};
-    s = s.replace(/[^\u0000-\u007E]/g, c => map[c] || c);
-    return s.toLowerCase();
-  }
+  return s.toLowerCase();
+}
+function renderPagination(total){
+ const totalPages = Math.ceil(total / rowsPerPage);
+ const pagination = document.getElementById('pagination');
+ pagination.innerHTML = '';
 
-  const rowsAll = Array.from(document.querySelectorAll('#ocorrenciasTable tbody tr'));
-  rowsAll.forEach(tr => { tr.dataset.norm = normalizeText(tr.textContent); });
+ const maxVisible = 5; // quantos botões no meio
 
-  const rowsPerPage = 10;
-  let currentPage = 1;
+ function createBtn(i){
+   const btn = document.createElement('button');
+   btn.textContent = i;
+   if(i === currentPage) btn.classList.add('active');
+   btn.onclick = ()=>{
+     currentPage = i;
+     displayPage(currentPage, document.getElementById('searchInput').value.toLowerCase());
+   };
+   return btn;
+ }
 
-  function displayPage(page, filterNorm=''){
-    const tbody = document.querySelector('#ocorrenciasTable tbody');
-    tbody.innerHTML = '';
+ // Sempre mostra a primeira
+ pagination.appendChild(createBtn(1));
 
-    const filtered = rowsAll.filter(row => row.dataset.norm.includes(filterNorm));
+ let start = Math.max(2, currentPage - Math.floor(maxVisible/2));
+ let end = Math.min(totalPages - 1, currentPage + Math.floor(maxVisible/2));
 
-    if(filtered.length===0) showToast('Nenhum resultado encontrado!');
+ if(start > 2){
+   const span = document.createElement('span');
+   span.textContent = '...';
+   pagination.appendChild(span);
+ }
 
-    const start=(page-1)*rowsPerPage;
-    const end=start+rowsPerPage;
-    filtered.slice(start,end).forEach(row => tbody.appendChild(row));
+ for(let i = start; i <= end; i++){
+   pagination.appendChild(createBtn(i));
+ }
 
-    renderPagination(filtered.length);
+ if(end < totalPages - 1){
+   const span = document.createElement('span');
+   span.textContent = '...';
+   pagination.appendChild(span);
+ }
 
-    // >>> Atualiza o mapa com TODOS os IDs filtrados (independente da página)
-    const idsVisiveis = new Set(filtered.map(tr => parseInt(tr.getAttribute('data-id'))));
-    updateMapVisible(idsVisiveis);
-  }
+ // Sempre mostra a última
+ if(totalPages > 1){
+   pagination.appendChild(createBtn(totalPages));
+ }
+}
 
-  function renderPagination(totalRows){
-    const totalPages=Math.max(1, Math.ceil(totalRows/rowsPerPage));
-    const pagination=document.getElementById('pagination');
-    pagination.innerHTML='';
-    for(let i=1;i<=totalPages;i++){
-      const btn=document.createElement('button');
-      btn.textContent=i;
-      if(i===currentPage) btn.classList.add('active');
-      btn.addEventListener('click',()=>{
-        currentPage=i;
-        const q = normalizeText(document.getElementById('searchInput').value);
-        displayPage(currentPage, q);
-      });
-      pagination.appendChild(btn);
-    }
-  }
+// filtro
+document.getElementById("searchInput").addEventListener("input",function(){
+ currentPage=1;
+ displayPage(currentPage, normalizeText(this.value));
+});
 
-  // Filtro instantâneo (atualiza tabela e mapa em tempo real)
-  document.getElementById("searchInput").addEventListener("input", function(){
-    currentPage=1;
-    const q = normalizeText(this.value);
-    displayPage(currentPage, q);
-  });
-
-  // Ordenação
-  document.querySelectorAll("#ocorrenciasTable th[data-column]").forEach(th=>{
-    th.addEventListener("click", function(){
-      const idx=Array.from(this.parentNode.children).indexOf(this);
-      const asc=!this.asc; this.asc=asc;
-      const rows=Array.from(rowsAll);
-      rows.sort((a,b)=>{
-        var v1=a.cells[idx].textContent.trim();
-        var v2=b.cells[idx].textContent.trim();
-        var n1 = normalizeText(v1);
-        var n2 = normalizeText(v2);
-        if(idx===7){ // coluna data
-          v1=new Date(v1.split("/").reverse().join("-"));
-          v2=new Date(v2.split("/").reverse().join("-"));
-          return v1>v2? (asc?1:-1):(v1<v2? (asc?-1:1):0);
-        }
-        return n1>n2? (asc?1:-1):(n1<n2? (asc?-1:1):0);
-      });
-      rows.forEach(r=>r.parentNode.appendChild(r));
-
-      const q = normalizeText(document.getElementById('searchInput').value);
-      displayPage(currentPage, q);
-    });
-  });
-
-  // Modal (edição) — fica acima do mapa
-  var editModal=document.getElementById("editModal");
-  var editForm=document.getElementById("editForm");
-  var closeBtn=document.querySelector(".modal-close");
-  document.querySelectorAll(".editBtn").forEach(btn=>{
-    btn.addEventListener("click",function(){
-      var tr=this.closest("tr");
-      var id=tr.dataset.id;
-      editForm.action="/ocorrencia/editar/"+id+"/";
-      editForm.numero.value=tr.children[0].textContent;
-      editForm.sigrc.value=tr.children[1].textContent;
-      editForm.endereco.value=tr.children[2].textContent;
-      editForm.bairro.value=tr.children[3].textContent;
-      editForm.distrito.value=tr.children[4].textContent;
-      editForm.area_risco.value=tr.children[5].textContent;
-      editForm.motivo.value=tr.children[6].textContent;
-      editForm.data.value=tr.children[7].textContent.split("/").reverse().join("-");
-      editModal.style.display="flex";
-    });
-  });
-  closeBtn.onclick=function(){editModal.style.display="none";}
-  window.onclick=function(e){if(e.target==editModal){editModal.style.display="none";}}
-
-  // Inicializa
-  displayPage(currentPage);
+// inicializa
+displayPage(currentPage);
 </script>
 
 <footer>
-    <p>&copy; 2025 UNIVESP - PROJETO INTEGRADOR EM COMPUTAÇÃO II - Todos os direitos reservados</p>
+    <p>&copy; 2025 UNIVESP - PROJETO INTEGRADOR EM COMPUTAÇÃO I e II - Todos os direitos reservados</p>
 </footer>
 </body>
 </html>
