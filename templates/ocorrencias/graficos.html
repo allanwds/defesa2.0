@@ -70,7 +70,7 @@
 
   <div class="row">
     <div class="card">
-      <h3>Ocorrências por motivo</h3>
+      <h3>GRÁFICO GERAL</h3>
       <div class="totais">
         <span class="badge">Total: <span id="total_motivos">–</span></span>
       </div>
@@ -78,7 +78,7 @@
     </div>
 
     <div class="card">
-      <h3>Ocorrências por distrito</h3>
+      <h3>OCORRÊNCIAS POR DISTRITO</h3>
       <div class="totais">
         <span class="badge">Total: <span id="total_distritos">–</span></span>
       </div>
@@ -89,12 +89,16 @@
   <!-- Evolução mensal -->
   <div class="row">
     <div class="card" style="flex:1 1 100%;">
-      <h3>Evolução mensal por motivo de ocorrência</h3>
+      <h3>EVOLUÇÃO MENSAL</h3>
       <div class="line-wrap">
         <canvas id="chartEvolucao"></canvas>
       </div>
       <p id="no-evolucao" class="muted">Sem dados mensais para os filtros selecionados.</p>
     </div>
+  </div>
+      <div class="card">
+        <h3>MAPA DE CALOR</h3>
+          <div id="chartHeatmap"></div>
   </div>
 
   <!-- Análise automática -->
@@ -107,11 +111,77 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script>
   const DATA_URL = "{% url 'graficos_data' %}";
 
-  let chartMotivos, chartDistritos, chartEvolucao;
+  let chartMotivos, chartDistritos, chartEvolucao, chartHeatmap;
   let optionsLoaded = false;
+
+  function buildHeatmap(data) {
+  const nomesMeses = [
+  "JAN", "FEV", "MAR", "ABR", "MAI", "JUN",
+  "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"
+];
+
+// 🔥 ordenar meses corretamente
+  const meses = [...new Set(data.map(d => d.x))].sort();
+
+  const mesesFormatados = meses.map(m => {
+    const [ano, mes] = m.split("-");
+    return `${nomesMeses[parseInt(mes) - 1]}/${ano}`;
+  });
+
+  const motivos = [...new Set(data.map(d => d.y))];
+
+  const series = motivos.map(motivo => ({
+    name: motivo,
+    data: meses.map(mes => {
+      const item = data.find(d => d.x === mes && d.y === motivo);
+      return item ? item.v : 0;
+    })
+  }));
+
+  const options = {
+    chart: {
+      type: 'heatmap',
+      height: 400
+    },
+    dataLabels: {
+      enabled: false
+    },
+    plotOptions: {
+      heatmap: {
+        shadeIntensity: 0.6,
+        radius: 4,
+        colorScale: {
+          ranges: [
+            { from: 0, to: 1, color: "#e3ecf7" },
+            { from: 2, to: 5, color: "#a9c3e6" },
+            { from: 6, to: 10, color: "#5b8fd6" },
+            { from: 11, to: 20, color: "#1f5aa6" },
+            { from: 21, to: 999, color: "#0b2e59" }
+          ]
+        }
+      }
+    },
+    stroke: {
+      width: 1
+    },
+    series: series,
+    xaxis: {
+      categories: mesesFormatados
+    },
+    title: {
+      text: 'Análise mês a mês'
+    }
+  };
+
+  const chart = new ApexCharts(document.querySelector("#chartHeatmap"), options);
+  chart.render();
+
+  return chart;
+}
 
   function buildBar(ctx, labels, data){
     return new Chart(ctx, {
@@ -134,17 +204,20 @@ function buildMultiLine(ctx, labels, series){
       '#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
       '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'
     ];
-    const datasets = series.map((s, i) => ({
-      label: s.label,
-      data: s.data,
-      borderColor: palette[i % palette.length],
-      backgroundColor: palette[i % palette.length] + '33',
-      borderWidth: 2,
-      tension: .35,
-      pointRadius: 0,
-      pointHitRadius: 10,
-      fill: false
-    }));
+const datasets = series.map((s, i) => {
+  const isTotal = s.label === "TOTAL GERAL";
+
+  return {
+    label: s.label,
+    data: s.data,
+    borderColor: isTotal ? '#000000' : palette[i % palette.length],
+    backgroundColor: isTotal ? '#00000033' : palette[i % palette.length] + '33',
+    borderWidth: isTotal ? 4 : 2,
+    tension: .35,
+    pointRadius: 0,
+    fill: false
+  };
+});
 
     return new Chart(ctx, {
       type: 'line',
@@ -187,11 +260,6 @@ function buildMultiLine(ctx, labels, series){
     return res.json();
   }
 
-  function updateTotals(p){
-    document.getElementById('total_motivos').textContent  = p.total_motivos ?? 0;
-    document.getElementById('total_distritos').textContent = p.total_distritos ?? 0;
-  }
-
   function populateSelect(id, values){
     const sel=document.getElementById(id); if(!sel) return;
     const current = sel.value;
@@ -205,6 +273,12 @@ function buildMultiLine(ctx, labels, series){
     populateSelect('distrito', (p?.distritos?.labels)||[]);
     optionsLoaded = true;
   }
+function formatarMes(m){
+  if(!m) return null;
+  const nomes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  const [ano, mes] = m.split("-");
+  return `${nomes[parseInt(mes)-1]} de ${ano}`;
+}
 
   function redrawCharts(p){
     const m  = p.motivos || {labels:[], data:[]};
@@ -214,6 +288,7 @@ function buildMultiLine(ctx, labels, series){
     if(chartMotivos)   chartMotivos.destroy();
     if(chartDistritos) chartDistritos.destroy();
     if(chartEvolucao)  chartEvolucao.destroy();
+    
 
     chartMotivos   = buildBar(document.getElementById('chartMotivos'), m.labels, m.data);
     chartDistritos = buildDoughnut(document.getElementById('chartDistritos'), d.labels, d.data);
@@ -227,8 +302,13 @@ function buildMultiLine(ctx, labels, series){
     }else{
       canvas.style.display='none'; noMsg.style.display='block';
     }
+     // 🔥 AQUI (DENTRO DA FUNÇÃO)
+    if (Array.isArray(p.heatmap)) {
+      if (chartHeatmap) chartHeatmap.destroy();
+
+    chartHeatmap = buildHeatmap(p.heatmap);
   }
-  
+  } 
   function updateTotals(p){
     document.getElementById('total_motivos').textContent  = p.total_motivos ?? 0;
     document.getElementById('total_distritos').textContent = p.total_distritos ?? 0;
@@ -241,13 +321,6 @@ function buildMultiLine(ctx, labels, series){
     sel.innerHTML = '<option value="">— Todos —</option>';
     values.forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
     if(values.includes(current)) sel.value = current;
-  }
-
-  function populateSelectsOnce(p){
-    if(optionsLoaded) return;
-    populateSelect('motivo', (p?.motivos?.labels)||[]);
-    populateSelect('distrito', (p?.distritos?.labels)||[]);
-    optionsLoaded = true;
   }
 
   function formatResumo(params){
@@ -275,21 +348,164 @@ function buildMultiLine(ctx, labels, series){
 
     const partMotivo = Math.round((motivoQtd/total)*100);
     const partDistrito = Math.round((distritoQtd/total)*100);
+    
+// 🔥 BASE (PRIMEIRO DE TUDO)
+const ev = payload.evolucao_mensal_motivos || { labels: [], series: [] };
+let totalPorMes = [];
+let media = 0;
+let ultimoMes = 0;
 
-   const texto = `
-      É possível observar que o tipo de ocorrência com maior incidência na região da Subprefeitura do M'Boi Mirim foi <strong>${motivoMais}</strong>
-      (${motivoQtd} registros, ${partMotivo}% do total no período analisado). Este resultado sugere a priorização de
-      ações preventivas, vistorias direcionadas e campanhas educativas relacionadas a esse motivo específico.
-      <br><br>
-      Em termos territoriais, o distrito <strong>${distritoMais}</strong> apresentou o maior volume de registros
-      (${distritoQtd} ocorrências, ${partDistrito}% do total), indicando a necessidade de reforço operacional,
-      monitoramento contínuo e coordenação com serviços locais para mitigação de riscos na região.
-      <br><br>
-      Recomenda-se acompanhar a evolução desses indicadores em janelas temporais distintas (semanas, meses e estações)
-      para identificar sazonalidade e intensificar a preparação pré-chuva, quando pertinente.
-    `;
-    alvo.innerHTML = texto;
+if (Array.isArray(ev.labels) && ev.labels.length && Array.isArray(ev.series) && ev.series.length) {
+  totalPorMes = ev.labels.map((_, i) => {
+    return ev.series.reduce((acc, s) => acc + (s.data[i] || 0), 0);
+  });
+
+  if (totalPorMes.length) {
+    const soma = totalPorMes.reduce((a,b)=>a+b,0);
+    media = soma / totalPorMes.length;
+    ultimoMes = totalPorMes[totalPorMes.length - 1];
   }
+}
+const mesesChuva = ["11","12","01","02","03"];
+
+let somaChuva = 0, countChuva = 0;
+let somaSeca = 0, countSeca = 0;
+
+ev.labels.forEach((label, i) => {
+  const [, mes] = label.split("-");
+  const valor = totalPorMes[i] || 0;
+
+  if (mesesChuva.includes(mes)) {
+    somaChuva += valor;
+    countChuva++;
+  } else {
+    somaSeca += valor;
+    countSeca++;
+  }
+});
+
+const mediaChuva = countChuva ? (somaChuva / countChuva) : 0;
+const mediaSeca = countSeca ? (somaSeca / countSeca) : 0;
+
+let comparacaoAno = "sem dados comparativos";
+
+if (totalPorMes.length >= 13) {
+  const atual = totalPorMes.at(-1);
+  const anoAnterior = totalPorMes.at(-13);
+
+  if (anoAnterior) {
+    const variacao = ((atual - anoAnterior) / anoAnterior) * 100;
+
+    if (variacao > 20) comparacaoAno = "aumento em relação ao mesmo período do ano anterior";
+    else if (variacao < -20) comparacaoAno = "redução em relação ao mesmo período do ano anterior";
+    else comparacaoAno = "estabilidade em relação ao ano anterior";
+  }
+}
+let sazonalidade = "dentro do padrão";
+
+if (media > 0) {
+  const indice = ultimoMes / media;
+
+  if (indice > 1.5) sazonalidade = "fortemente sazonal (acima do esperado)";
+  else if (indice > 1.2) sazonalidade = "moderadamente sazonal";
+  else if (indice < 0.8) sazonalidade = "abaixo do padrão esperado";
+}
+    // 🔥 CLASSIFICAÇÃO DE RISCO
+let risco = "BAIXO";
+let corRisco = "#2e7d32"; // verde
+if (total > 30) {
+  risco = "ALTO";
+  corRisco = "#c62828"; // vermelho
+} else if (total > 10) {
+  risco = "MODERADO";
+  corRisco = "#f9a825"; // amarelo
+}
+
+    // 🔥 CALCULAR MÊS CRÍTICO E TENDÊNCIA
+
+let mesCritico = "—";
+let tendencia = "estável";
+
+if (Array.isArray(ev.labels) && ev.labels.length > 0 && Array.isArray(ev.series) && ev.series.length > 0) {
+
+  totalPorMes = ev.labels.map((_, i) => {
+    return ev.series.reduce((acc, s) => acc + (s.data[i] || 0), 0);
+  });
+
+  if (totalPorMes.length > 0) {
+    const maiorValor = Math.max(...totalPorMes);
+    const idx = totalPorMes.indexOf(maiorValor);
+
+    if (idx !== -1) {
+      mesCritico = ev.labels[idx];
+    }
+  }
+
+  if (totalPorMes.length >= 2) {
+    const ult = totalPorMes[totalPorMes.length - 1];
+    const penult = totalPorMes[totalPorMes.length - 2];
+
+    if (ult > penult) tendencia = "crescimento";
+    else if (ult < penult) tendencia = "queda";
+  }
+}
+const nomesMeses = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+];
+
+let mesFormatado = "—";
+
+if (mesCritico !== "—") {
+  const [ano, mes] = mesCritico.split("-");
+  mesFormatado = `${nomesMeses[parseInt(mes) - 1]} de ${ano}`;
+}
+  const extra = payload.analise_extra || {};
+  const mesAnomalo = extra.mes_anomalo || null;
+  const crescimento = extra.crescimento ?? null;
+  const topBairros = extra.top_bairros || [];
+  const mediaMensal = extra.media_mensal ?? 0;
+  const mesAnomaloFormatado = formatarMes(mesAnomalo);
+  const texto = `
+
+<strong>1. Análise Geral</strong><br>
+O principal tipo de ocorrência identificado foi <strong>${motivoMais}</strong>, com 
+<strong>${motivoQtd}</strong> registros (${partMotivo}% do total).
+
+<br><br>
+
+<strong>2. Distribuição Territorial</strong><br>
+O distrito de <strong>${distritoMais}</strong> concentrou o maior volume de ocorrências 
+(${distritoQtd} registros), indicando necessidade de atenção prioritária.
+
+<br><br>
+
+<strong>3. Comportamento Temporal</strong><br>
+A média MENSAL de ocorrências no período foi de <strong>${Math.round(mediaMensal)}</strong> registros.
+${mesAnomaloFormatado ? `<br>Foi identificado um pico fora do padrão no mês de <strong>${mesAnomaloFormatado}</strong>, indicando evento atípico relevante.` 
+: ""
+}
+
+<br><br>
+
+<strong>4. Bairros com maior número de ocorrências</strong><br>
+Os bairros que apresentaram o maior número de ocorrências foram: <strong>${topBairros.join(", ")}</strong>.
+
+<br><br>
+
+<strong>5. Análise Sazonal</strong><br>
+Durante o período chuvoso, a média foi de <strong>${Math.round(mediaChuva)}</strong> ocorrências, 
+enquanto no período seco foi de <strong>${Math.round(mediaSeca)}</strong>, indicando 
+${mediaChuva > mediaSeca ? "maior criticidade em períodos de chuva" : "comportamento estável entre períodos"}.
+
+<br><br>
+
+<strong>6. Conclusão</strong><br>
+Os dados indicam necessidade de monitoramento contínuo, com atenção especial aos períodos críticos e 
+regiões com maior recorrência, visando ações preventivas mais eficazes.
+`;
+alvo.innerHTML = texto;
+}
 
   async function load(params={}){
     try{
@@ -323,5 +539,8 @@ function buildMultiLine(ctx, labels, series){
     load();
   });
 </script>
+ <footer>
+    <p>&copy; 2025 UNIVESP - PROJETO INTEGRADOR EM COMPUTAÇÃO I , II e III - Todos os direitos reservados</p>
+  </footer>
 </body>
 </html>

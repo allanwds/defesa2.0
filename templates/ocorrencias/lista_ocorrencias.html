@@ -87,7 +87,7 @@ L.control.layers({"Mapa":mapa,"Satélite":satelite}).addTo(map);
 
 // CLUSTER
 var markersById = {};
-var cores = {"0":"green","1":"yellow","2":"orange","3":"red","4":"darkred"};
+var cores = {"0":"green","1":"green","2":"yellow","3":"orange","4":"red"};
 
 // DADOS
 var dados = [
@@ -128,7 +128,7 @@ legend.onAdd=function(){
  var div=L.DomUtil.create('div');
  div.style.background="white";
  div.style.padding="10px";
- div.innerHTML="<b>Risco</b><br>🟢 Baixo<br>🟡 Médio<br>🟠 Alto<br>🔴 Muito Alto<br>";
+ div.innerHTML="<b>Risco</b><br>🟢 S / Risco ou Baixo - R1<br>🟡 Médio - R2<br>🟠 Alto - R3<br>🔴 Muito Alto -R4 <br>";
  return div;
 };
 legend.addTo(map);
@@ -246,7 +246,7 @@ displayPage(currentPage);
 </script>
 
 <footer>
-    <p>&copy; 2025 UNIVESP - PROJETO INTEGRADOR EM COMPUTAÇÃO I e II - Todos os direitos reservados</p>
+    <p>&copy; 2025 UNIVESP - PROJETO INTEGRADOR EM COMPUTAÇÃO I , II e III - Todos os direitos reservados</p>
 </footer>
 </body>
 </html>

@@ -25,7 +25,8 @@ from django.http import JsonResponse
 from django.utils.dateparse import parse_date
 from django.template.loader import render_to_string
 from reportlab.lib.utils import ImageReader
-from django.db.models.functions import TruncMonth
+#from django.db.models.functions import TruncMonth
+import pandas as pd
 
 # --------------------- LOGIN / LOGOUT ---------------------
 LOGO_URL = "https://www.prefeitura.sp.gov.br/cidade/secretarias/upload/comunicacao/noticias/defesacivil.jpg"
@@ -219,76 +220,150 @@ def graficos_page(request):
 def graficos_data(request):
     qs = Ocorrencia.objects.all()
 
-    # filtros
+    # ---------------- FILTROS ----------------
     data_inicial = (request.GET.get("data_inicial") or "").strip()
     data_final   = (request.GET.get("data_final") or "").strip()
     distrito     = (request.GET.get("distrito") or "").strip()
     motivo       = (request.GET.get("motivo") or "").strip()
-    endereco     = (request.GET.get("endereco") or "").strip()
-    bairro       = (request.GET.get("bairro") or "").strip()
-    tipo         = (request.GET.get("tipo") or "").strip()
 
     if data_inicial:
         d_ini = parse_date(data_inicial)
         if d_ini:
             qs = qs.filter(data__gte=d_ini)
+
     if data_final:
         d_fim = parse_date(data_final)
         if d_fim:
             qs = qs.filter(data__lte=d_fim)
 
-    if distrito: qs = qs.filter(distrito__icontains=distrito)
-    if motivo:   qs = qs.filter(motivo__icontains=motivo)
-    if endereco: qs = qs.filter(endereco__icontains=endereco)
-    if bairro:   qs = qs.filter(bairro__icontains=bairro)
-    if tipo:     qs = qs.filter(tipo__icontains=tipo)
+    if distrito:
+        qs = qs.filter(distrito__icontains=distrito)
 
-    # agregações
-    motivos_qs = qs.values("motivo").annotate(total=Count("id")).order_by("-total", "motivo")
-    distritos_qs = qs.values("distrito").annotate(total=Count("id")).order_by("-total", "distrito")
+    if motivo:
+        qs = qs.filter(motivo__icontains=motivo)
 
-    motivos_labels = [m["motivo"] or "—" for m in motivos_qs]
-    motivos_data   = [m["total"] for m in motivos_qs]
-    distritos_labels = [d["distrito"] or "—" for d in distritos_qs]
-    distritos_data   = [d["total"] for d in distritos_qs]
+    # ---------------- DATAFRAME ----------------
+    qs = qs.values("data", "motivo", "distrito", "bairro")
+    df = pd.DataFrame(list(qs))
+# 🔥 LIMPEZA DE DADOS (OBRIGATÓRIO)
+    df['motivo'] = (
+        df['motivo']
+         .astype(str)
+         .str.strip()
+        .str.lower()
+)
 
-    # evolução mensal
-    base = qs.annotate(mes=TruncMonth("data"))
-    # meses existentes (ordenados)
-    meses = [row["mes"] for row in
-             base.values("mes").annotate(q=Count("id")).order_by("mes")
-             if row["mes"]]
-    labels_mes = [m.strftime("%Y-%m") for m in meses]
+# 🔥 PADRONIZAÇÃO (resolve duplicidade)
+    df['motivo'] = df['motivo'].replace({
+    'rachadura em edificações': 'Rachadura em edificações',
+    'rachadura em edificação': 'Rachadura em edificações',
+    'rachadura em residencia': 'Rachadura em edificações',
+    'rachadura em residências': 'Rachadura em edificações',
+})
 
-    # motivos existentes (ordenados)
-    motivos_dist = [row["motivo"] or "—" for row in
-                    base.values("motivo").annotate(q=Count("id")).order_by("motivo")]
+# 🔥 remove lixo
+    df = df.dropna(subset=['data', 'motivo'])
 
-    # contagem por (mes, motivo)
-    grid_qs = base.values("mes", "motivo").annotate(qtd=Count("id"))
-    contador = {}
-    for g in grid_qs:
-        k = (g["mes"].strftime("%Y-%m") if g["mes"] else "", g["motivo"] or "—")
-        contador[k] = g["qtd"]
+    if df.empty:
+        return JsonResponse({
+         "motivos": {"labels": [], "data": []},
+         "distritos": {"labels": [], "data": []},
+         "evolucao_mensal_motivos": {"labels": [], "series": []},
+         "heatmap": []
+})
+
+    # ---------------- TRATAMENTO ----------------
+    df['data'] = pd.to_datetime(df['data'])
+    df['mes'] = df['data'].dt.to_period('M').astype(str)
+
+    # ---------------- MOTIVOS ----------------
+    motivos = df['motivo'].value_counts()
+
+    # ---------------- DISTRITOS ----------------
+    distritos = df['distrito'].value_counts()
+
+    # ---------------- PIVOT (BASE DE TUDO) ----------------
+    pivot = pd.pivot_table(
+        df,
+        index='mes',
+        columns='motivo',
+        aggfunc='size',
+        fill_value=0
+    )
+
+    pivot = pivot.sort_index()
+
+    # ---------------- SERIES (GRÁFICO LINHA) ----------------
+    labels_mes = pivot.index.tolist()
 
     series = []
-    for mot in motivos_dist:
-        linha = [contador.get((lab, mot), 0) for lab in labels_mes]
-        series.append({"label": mot, "data": linha})
+    for col in pivot.columns:
+        series.append({
+            "label": col,
+            "data": pivot[col].tolist()
+        })
 
-    payload = {
-        "motivos": {"labels": motivos_labels, "data": motivos_data},
-        "distritos": {"labels": distritos_labels, "data": distritos_data},
-        "total_motivos": sum(motivos_data) if motivos_data else 0,
-        "total_distritos": sum(distritos_data) if distritos_data else 0,
+    # ---------------- HEATMAP ----------------
+    heatmap_data = []
 
-        # novo bloco multi-série:
+    for mes in pivot.index:
+        for mot in pivot.columns:
+            heatmap_data.append({
+                "x": mes,
+                "y": mot,
+                "v": int(pivot.loc[mes, mot])
+            })
+#  AGRUPAMENTO MENSAL
+    mensal = df.groupby('mes').size().sort_index()
+
+#  MÉDIA E DESVIO (ANOMALIA)
+    media = mensal.mean()
+    desvio = mensal.std()
+    limite = media + (2 * desvio)
+
+    anomalias = mensal[mensal > limite]
+
+    mes_anomalo = None
+    if not anomalias.empty:
+        mes_anomalo = anomalias.idxmax()
+
+#  CRESCIMENTO (%)
+    crescimento = None
+    if len(mensal) >= 2:
+        ult = mensal.iloc[-1]
+        penult = mensal.iloc[-2]
+    if penult > 0:
+        crescimento = round(((ult - penult) / penult) * 100, 1)
+
+#  TOP BAIRROS
+    top_bairros = df['bairro'].value_counts().head(5)
+
+# 🔥 RESPOSTA EXTRA
+    analise_extra = {
+    "mes_anomalo": mes_anomalo,
+    "crescimento": crescimento,
+    "top_bairros": top_bairros.index.tolist(),
+    "media_mensal": round(media, 1)
+}
+    # ---------------- RESPOSTA ----------------
+    return JsonResponse({
+        "motivos": {
+            "labels": motivos.index.tolist(),
+            "data": motivos.values.tolist()
+        },
+        "distritos": {
+            "labels": distritos.index.tolist(),
+            "data": distritos.values.tolist()
+        },
+        "total_motivos": int(motivos.sum()),
+        "total_distritos": int(distritos.sum()),
         "evolucao_mensal_motivos": {
-            "labels": labels_mes,     # ["2025-01", "2025-02", ...]
-            "series": series          # [ {label:"Queda de árvore", data:[...]}, ... ]
-        }
-    }
-    return JsonResponse(payload)
+            "labels": labels_mes,
+            "series": series
+        },
+        "heatmap": heatmap_data,
+        "analise_extra": analise_extra
+    })
     
 @login_required
 def graficos_ocorrencias(request):
@@ -730,3 +805,4 @@ def graficos_ajax(request):
     distritos_data = list(qs.values('distrito').annotate(total=Count('distrito')))
 
     return JsonResponse({'motivos': motivos_data, 'distritos': distritos_data})
+
