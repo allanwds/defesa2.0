@@ -27,6 +27,8 @@ from django.template.loader import render_to_string
 from reportlab.lib.utils import ImageReader
 #from django.db.models.functions import TruncMonth
 import pandas as pd
+from datetime import datetime
+from django.db.models.functions import ExtractYear
 
 # --------------------- LOGIN / LOGOUT ---------------------
 LOGO_URL = "https://www.prefeitura.sp.gov.br/cidade/secretarias/upload/comunicacao/noticias/defesacivil.jpg"
@@ -45,7 +47,7 @@ def login_view(request):
             return redirect('home')  # Senão, vai para home
         else:
             messages.error(request, "Usuário ou senha inválidos.")
-    return render(request, "login.html")
+    return render(request, "ocorrencias/login.html")
 
 
 def logout_view(request):
@@ -61,98 +63,103 @@ def home(request):
 
 
 # --------------------- CADASTRO / LISTA ---------------------
-
+"""
 @login_required
 def cadastro_ocorrencia(request):
+
     if request.method == 'POST':
         form = OcorrenciaForm(request.POST)
 
         if form.is_valid():
-            try:
-                with transaction.atomic():
-                    form.save()
-                messages.success(request, 'Ocorrência cadastrada com sucesso!')
-                return redirect('lista_ocorrencias')
 
-            except IntegrityError as e:
-                msg = str(e)
+            numero = form.cleaned_data.get('numero')
+            data = form.cleaned_data.get('data')
 
-                # 🔒 Mapas de erros comuns de integridade
-                if 'ocorrencias_ocorrencia_numero_key' in msg or ('unique' in msg.lower() and 'numero' in msg.lower()):
-                    form.add_error('numero', 'Número de FOC já cadastrado.')
-                elif 'sigrc' in msg.lower() and 'unique' in msg.lower():
-                    form.add_error('sigrc', 'SIGRC já cadastrado.')
-                elif 'not null constraint failed' in msg.lower() and 'latitude' in msg.lower():
-                    form.add_error('latitude', 'Latitude é obrigatória. Selecione no mapa.')
-                elif 'not null constraint failed' in msg.lower() and 'longitude' in msg.lower():
-                    form.add_error('longitude', 'Longitude é obrigatória. Selecione no mapa.')
-                else:
-                    form.add_error(None, 'Erro de integridade ao salvar. Verifique os campos e tente novamente.')
+            ano = data.year
 
-                messages.error(request, 'Não foi possível salvar. Corrija os erros destacados.')
+            # 🔥 VERIFICA DUPLICIDADE NO MESMO ANO
+            existe = Ocorrencia.objects.filter(
+                numero=numero,
+                data__year=ano
+            ).exists()
 
-            except DatabaseError:
-                form.add_error(None, 'Erro no banco de dados. Tente novamente.')
-                messages.error(request, 'Erro no banco de dados. Tente novamente.')
+            if existe:
+                form.add_error('numero', 'Já existe uma FOC com esse número neste ano.')
+                return render(request, 'ocorrencias/cadastro.html', {'form': form})
+
+            # 🔥 SALVA
+            form.save()
+            messages.success(request, 'Ocorrência cadastrada com sucesso!')
+            return redirect('lista_ocorrencias')
 
         else:
-            messages.error(request, 'Corrija os erros abaixo e tente novamente.')
+            messages.error(request, 'Corrija os erros abaixo.')
 
         return render(request, 'ocorrencias/cadastro.html', {'form': form})
 
     # GET
     form = OcorrenciaForm()
-    return render(request, 'ocorrencias/cadastro.html', {'form': form})
-
+    return render(request, 'ocorrencias/cadastro.html', {'form': form})"""
 
 @login_required
 def lista_ocorrencias(request):
-    ocorrencias = Ocorrencia.objects.all().order_by('-numero')
-    return render(request, 'ocorrencias/lista_ocorrencias.html', {'ocorrencias': ocorrencias})
+
+    from django.db.models.functions import ExtractYear
+    from datetime import datetime
+
+    ano = request.GET.get('ano')
+
+    if not ano:
+        ano = str(datetime.now().year)  # padrão
+
+    if ano == 'todos':
+        ocorrencias = Ocorrencia.objects.all()
+    else:
+        ocorrencias = Ocorrencia.objects.filter(data__year=ano)
+
+    # 🔥 CRIA LISTA DE ANOS EXISTENTES
+    anos = Ocorrencia.objects.annotate(
+        ano_db=ExtractYear('data')
+    ).values_list('ano_db', flat=True).distinct().order_by('-ano_db')
+
+    return render(request, 'ocorrencias/lista_ocorrencias.html', {
+        'ocorrencias': ocorrencias.order_by('-numero'),
+        'anos': anos,
+        'ano_selecionado': ano
+    })
 
 
 @login_required
 def salvar_ocorrencia(request):
+
     if request.method == 'POST':
         form = OcorrenciaForm(request.POST)
 
         if form.is_valid():
-            try:
-                with transaction.atomic():
-                    form.save()
-                messages.success(request, 'Ocorrência cadastrada com sucesso!')
-                return redirect('lista_ocorrencias')
 
-            except IntegrityError as e:
-                msg = str(e)
+            numero = form.cleaned_data.get('numero')
+            data = form.cleaned_data.get('data')
 
-                # 🔒 Mapas de erros comuns de integridade
-                if 'ocorrencias_ocorrencia_numero_key' in msg or ('unique' in msg.lower() and 'numero' in msg.lower()):
-                    form.add_error('numero', 'Número de FOC já cadastrado.')
-                elif 'sigrc' in msg.lower() and 'unique' in msg.lower():
-                    form.add_error('sigrc', 'SIGRC já cadastrado.')
-                elif 'not null constraint failed' in msg.lower() and 'latitude' in msg.lower():
-                    form.add_error('latitude', 'Latitude é obrigatória. Selecione no mapa.')
-                elif 'not null constraint failed' in msg.lower() and 'longitude' in msg.lower():
-                    form.add_error('longitude', 'Longitude é obrigatória. Selecione no mapa.')
-                else:
-                    form.add_error(None, 'Erro de integridade ao salvar. Verifique os campos e tente novamente.')
+            if numero and data:
+                existe = Ocorrencia.objects.filter(
+                    numero=numero,
+                    data__year=data.year
+                ).exists()
 
-                messages.error(request, 'Não foi possível salvar. Corrija os erros destacados.')
+                if existe:
+                    messages.error(request, 'Já existe uma FOC com esse número neste ano.')
+                    return render(request, 'ocorrencias/cadastro.html', {'form': form})
 
-            except DatabaseError:
-                form.add_error(None, 'Erro no banco de dados. Tente novamente.')
-                messages.error(request, 'Erro no banco de dados. Tente novamente.')
+            form.save()
+            return redirect('lista_ocorrencias')
 
         else:
-            messages.error(request, 'Corrija os erros abaixo e tente novamente.')
+            messages.error(request, 'NÃO FOI POSSÍVEL SALVAR. VERIFIQUE OS DADOS E TENTE NOVAMENTE.')
+            return render(request, 'ocorrencias/cadastro.html', {'form': form})
 
-        return render(request, 'ocorrencias/cadastro.html', {'form': form})
-
-    # GET
+   
     form = OcorrenciaForm()
     return render(request, 'ocorrencias/cadastro.html', {'form': form})
-
 
 # --------------------- EDIÇÃO / EXCLUSÃO ---------------------
 
@@ -176,11 +183,12 @@ def editar_ocorrencia_inline(request, id):
 
     return JsonResponse({'status': 'ok'})
 
+@require_POST
 @login_required
 def excluir_ocorrencia(request, id):
     ocorrencia = get_object_or_404(Ocorrencia, id=id)
     ocorrencia.delete()
-    return redirect('lista_ocorrencias')
+    return JsonResponse({'status': 'ok'})
 
 
 # --------------------- RELATÓRIOS / GRÁFICOS ---------------------
@@ -224,6 +232,11 @@ def graficos_page(request):
 def graficos_data(request):
     qs = Ocorrencia.objects.all()
 
+    ano = request.GET.get('ano')
+
+    if ano and ano != 'todos':
+        qs = qs.filter(data__year=ano)
+
     # ---------------- FILTROS ----------------
     data_inicial = (request.GET.get("data_inicial") or "").strip()
     data_final   = (request.GET.get("data_final") or "").strip()
@@ -249,6 +262,15 @@ def graficos_data(request):
     # ---------------- DATAFRAME ----------------
     qs = qs.values("data", "motivo", "distrito", "bairro")
     df = pd.DataFrame(list(qs))
+    if df.empty or 'motivo' not in df:
+        return JsonResponse({
+            "motivos": {"labels": [], "data": []},
+            "distritos": {"labels": [], "data": []},
+            "evolucao_mensal_motivos": {"labels": [], "series": []},
+            "heatmap": [],
+            "total_motivos": 0,
+            "total_distritos": 0
+        })
 # 🔥 LIMPEZA DE DADOS (OBRIGATÓRIO)
     df['motivo'] = (
         df['motivo']
@@ -325,8 +347,8 @@ def graficos_data(request):
     if len(mensal) >= 2:
         ult = mensal.iloc[-1]
         penult = mensal.iloc[-2]
-    if penult > 0:
-        crescimento = round(((ult - penult) / penult) * 100, 1)
+        if penult > 0:
+            crescimento = round(((ult - penult) / penult) * 100, 1)
 
 #  TOP BAIRROS
     top_bairros = df['bairro'].value_counts().head(5)

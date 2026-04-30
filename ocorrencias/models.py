@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 
 class Ocorrencia(models.Model):
     numero = models.IntegerField()
@@ -15,3 +16,19 @@ class Ocorrencia(models.Model):
 
     def __str__(self):
         return f'Ocorrência {self.numero}'
+
+    def clean(self):
+    
+        if not self.data:
+            return
+
+        ano = self.data.year
+
+        if Ocorrencia.objects.filter(
+        numero=self.numero,
+        data__year=ano
+        ).exclude(id=self.id).exists():
+
+            raise ValidationError({
+            "numero": "Já existe uma ocorrência com esse número neste ano."
+        })

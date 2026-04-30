@@ -16,7 +16,7 @@ body { font-family:'Rubik',sans-serif; background:#fff3e0; margin:0; padding:0; 
 header { background:#ff9800; color:#fff; text-align:center; padding:20px 0; font-size:2em; box-shadow:0 4px 6px rgba(0,0,0,.2); }
 .logo { width:120px; margin-bottom:10px; }
 .container{padding:20px;display:flex;flex-direction:column;align-items:center}
-#map{height:500px;width:100%;max-width:1200px;border-radius:12px;margin-bottom:20px;}
+#map{height:350px;width:100%;max-width:1000px;border-radius:12px;margin-bottom:20px;}
 .table-responsive{width:100%;overflow-x:auto}
 table{width:100%;min-width:900px;margin-top:20px;border-collapse:collapse;background:#fff;box-shadow:0 8px 16px rgba(0,0,0,0.15)}
 th,td{padding:10px;text-align:center;border:1px solid #ddd; cursor:pointer;}
@@ -42,6 +42,21 @@ input[type="text"]{padding:6px 8px;width:250px;border-radius:6px;border:1px soli
 <div id="map"></div>
 
 <input type="text" id="searchInput" placeholder="Pesquisar...">
+<form method="GET" style="margin:10px 0;">
+  
+  <select name="ano" onchange="this.form.submit()" style="padding:8px;border-radius:8px;">
+    
+    <option value="todos">Todos os anos</option>
+
+    {% for a in anos %}
+      <option value="{{ a }}" {% if ano_selecionado == a|stringformat:"s" %}selected{% endif %}>
+        {{ a }}
+      </option>
+    {% endfor %}
+
+  </select>
+
+</form>
 
 <div class="table-responsive">
 <table id="ocorrenciasTable">
@@ -305,6 +320,31 @@ function salvarEdicao(){
     }
   });
 }
+function excluirOcorrencia(){
+
+  const id = document.getElementById('editId').value;
+
+  if(!confirm("Tem certeza que deseja excluir essa ocorrência?")){
+    return;
+  }
+
+  fetch(`/excluir/${id}/`, {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': getCSRFToken()
+    }
+  })
+  .then(response => {
+    if(response.ok){
+      location.reload();
+    }else{
+      alert("Erro ao excluir");
+    }
+  })
+  .catch(() => {
+    alert("Erro ao excluir");
+  });
+}
 </script>
 
 <footer>
@@ -329,6 +369,7 @@ function salvarEdicao(){
 
     <button onclick="salvarEdicao()">Salvar</button>
     <button onclick="fecharModal()">Cancelar</button>
+    <button style="background:red;color:white;" onclick="excluirOcorrencia()">Excluir</button>
 
   </div>
 </div>

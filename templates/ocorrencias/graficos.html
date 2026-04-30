@@ -68,6 +68,12 @@
         </select>
       </div>
       <div>
+        <label for="ano">Ano</label>
+          <select id="ano" name="ano">
+        <option value="todos">Todos</option>
+        </select>
+      </div>
+      <div>
         <button type="submit" class="btn">Aplicar</button>
         <button type="button" id="limpar" class="btn">Limpar</button>
       </div>
@@ -362,11 +368,34 @@ const datasets = series.map((s, i) => {
     if(values.includes(current)) sel.value = current;
   }
   function populateSelectsOnce(p){
-    if(optionsLoaded) return;
-    populateSelect('motivo', (p?.motivos?.labels)||[]);
-    populateSelect('distrito', (p?.distritos?.labels)||[]);
-    optionsLoaded = true;
+  if(optionsLoaded) return;
+
+  populateSelect('motivo', (p?.motivos?.labels)||[]);
+  populateSelect('distrito', (p?.distritos?.labels)||[]);
+
+  // 🔥 CRIA LISTA DE ANOS
+  const anos = new Set();
+
+  const labelsEvolucao = p?.evolucao_mensal_motivos?.labels || [];
+
+labelsEvolucao.forEach(m=>{
+    const ano = m.split('-')[0];
+    anos.add(ano);
+  });
+
+  const selAno = document.getElementById('ano');
+  if(selAno){
+    selAno.innerHTML = '<option value="todos">Todos</option>';
+    [...anos].sort((a,b)=>b-a).forEach(a=>{
+      const o = document.createElement('option');
+      o.value = a;
+      o.textContent = a;
+      selAno.appendChild(o);
+    });
   }
+
+  optionsLoaded = true;
+}
 function formatarMes(m){
   if(!m) return null;
   const nomes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];

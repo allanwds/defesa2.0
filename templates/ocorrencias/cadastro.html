@@ -105,8 +105,8 @@ input:focus, select:focus{ border-color:#fb8c00;  outline:none;  background:#fff
 <label for="distrito">Distrito</label>
 <select name="distrito">
 <option>Selecione</option>
-<option>Jardim Ângela</option>
-<option>Jardim São Luís</option>
+<option>Jd. Ângela</option>
+<option>Jd. São Luis</option>
 </select>
 </div>
 </div>
@@ -128,15 +128,18 @@ input:focus, select:focus{ border-color:#fb8c00;  outline:none;  background:#fff
   <select name="motivo" id="motivo" required>
     {% with val=form.motivo.value %}
       <option value="">Selecione</option>
-      <option value="Erosão na via" {% if val == 'Erosão na via' %}selected{% endif %}>Erosão na via</option>
-      <option value="Deslizamento" {% if val == 'Deslizamento' %}selected{% endif %}>Deslizamento</option>
+      <option value="Alagamento" {% if val == 'Alagamento' %}selected{% endif %}>Alagamento</option>
       <option value="Desabamento" {% if val == 'Desabamento' %}selected{% endif %}>Desabamento</option>
+      <option value="Deslizamento" {% if val == 'Deslizamento' %}selected{% endif %}>Deslizamento</option>
+      <option value="Erosão na via" {% if val == 'Erosão na via' %}selected{% endif %}>Erosão na via</option>
+      <option value="Inundação" {% if val == 'Inundação' %}selected{% endif %}>Inundação</option>
+      <option value="Queda de árvore" {% if val == 'Queda de árvore' %}selected{% endif %}>Queda de árvore</option>
       <option value="Rachadura em Edificação" {% if val == 'Rachadura em Edificação' %}selected{% endif %}>Rachadura em edificação</option>
       <option value="Risco de desabamento" {% if val == 'Risco de desabamento' %}selected{% endif %}>Risco de desabamento</option>
       <option value="Risco de queda de árvore" {% if val == 'Risco de queda de árvore' %}selected{% endif %}>Risco de queda de árvore</option>
-      <option value="Queda de árvore" {% if val == 'Queda de árvore' %}selected{% endif %}>Queda de árvore</option>
-      <option value="Alagamento" {% if val == 'Alagamento' %}selected{% endif %}>Alagamento</option>
-      <option value="Inundação" {% if val == 'Inundação' %}selected{% endif %}>Inundação</option>
+      <option value="Solapamento de via" {% if val == 'Solapamento de via' %}selected{% endif %}>Solapamento de via</option>
+      <option value="Solapamento de margem de córrego" {% if val == 'Solapamento de margem de córrego' %}selected{% endif %}>Solapamento de margem de córrego</option>
+      
       <option value="Outros" {% if val == 'Outros' %}selected{% endif %}>Outros</option>
     {% endwith %}
   </select>
@@ -144,7 +147,7 @@ input:focus, select:focus{ border-color:#fb8c00;  outline:none;  background:#fff
 
 <div class="form-group small">
 <label for="data">Data</label>
-<input type="date" name="data">
+{{ form.data }}
 </div>
 </div>
 
@@ -159,7 +162,13 @@ input:focus, select:focus{ border-color:#fb8c00;  outline:none;  background:#fff
 </div>
 
 <div id="map"></div>
-
+{% if messages %}
+  {% for message in messages %}
+    <div style="color:red; margin-bottom:10px;">
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
 </form>
 </div>
 
