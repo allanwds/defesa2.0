@@ -11,4 +11,5 @@ urlpatterns = [
     path('relatorio/pdf/', views.gerar_relatorio_pdf, name='relatorio_pdf'),
     path('graficos/data/', views.graficos_data, name='graficos_data'),
     path('graficos/', views.graficos_page, name='graficos_page'),
+    path('editar/<int:id>/', views.editar_ocorrencia_inline),
 ]

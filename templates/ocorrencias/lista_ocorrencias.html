@@ -243,10 +243,94 @@ document.getElementById("searchInput").addEventListener("input",function(){
 
 // inicializa
 displayPage(currentPage);
+// ===== EDITAR =====
+
+document.addEventListener('click', function(e){
+  const row = e.target.closest('tr[data-id]');
+  if(!row) return;
+
+  document.getElementById('editId').value = row.dataset.id;
+
+  document.getElementById('editNumero').value = row.children[0].innerText;
+  document.getElementById('editSigrc').value = row.children[1].innerText;
+  document.getElementById('editEndereco').value = row.children[2].innerText;
+  document.getElementById('editBairro').value = row.children[3].innerText;
+  document.getElementById('editDistrito').value = row.children[4].innerText;
+  document.getElementById('editRisco').value = row.children[5].innerText;
+  document.getElementById('editMotivo').value = row.children[6].innerText;
+
+  const d = row.children[7].innerText.split('/');
+  document.getElementById('editData').value = `${d[2]}-${d[1]}-${d[0]}`;
+
+  document.getElementById('modalEdit').style.display = 'flex';
+});
+
+function fecharModal(){
+  document.getElementById('modalEdit').style.display = 'none';
+}
+
+function getCSRFToken(){
+  return document.cookie.split('; ')
+    .find(row => row.startsWith('csrftoken'))
+    ?.split('=')[1];
+}
+
+function salvarEdicao(){
+
+  const id = document.getElementById('editId').value;
+
+  fetch(`/editar/${id}/`, {
+    method:'POST',
+    headers:{
+      'Content-Type':'application/x-www-form-urlencoded',
+      'X-CSRFToken': getCSRFToken()
+    },
+    body:new URLSearchParams({
+      numero: document.getElementById('editNumero').value,
+      sigrc: document.getElementById('editSigrc').value,
+      endereco: document.getElementById('editEndereco').value,
+      bairro: document.getElementById('editBairro').value,
+      distrito: document.getElementById('editDistrito').value,
+      area_risco: document.getElementById('editRisco').value,
+      motivo: document.getElementById('editMotivo').value,
+      data: document.getElementById('editData').value
+    })
+  })
+  .then(r=>r.json())
+  .then(r=>{
+    if(r.status === 'ok'){
+      location.reload();
+    }else{
+      alert("Erro ao salvar");
+    }
+  });
+}
 </script>
 
 <footer>
     <p>&copy; 2025 UNIVESP - PROJETO INTEGRADOR EM COMPUTAÇÃO I , II e III - Todos os direitos reservados</p>
 </footer>
+<div id="modalEdit" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); justify-content:center; align-items:center; z-index:999;">
+
+  <div style="background:#fff; padding:20px; width:400px; border-radius:10px;">
+
+    <h3>Editar Ocorrência</h3>
+
+    <input type="hidden" id="editId">
+
+    <input id="editNumero" placeholder="FOC"><br><br>
+    <input id="editSigrc" placeholder="SIGRC"><br><br>
+    <input id="editEndereco" placeholder="Endereço"><br><br>
+    <input id="editBairro" placeholder="Bairro"><br><br>
+    <input id="editDistrito" placeholder="Distrito"><br><br>
+    <input id="editRisco" placeholder="Risco"><br><br>
+    <input id="editMotivo" placeholder="Motivo"><br><br>
+    <input type="date" id="editData"><br><br>
+
+    <button onclick="salvarEdicao()">Salvar</button>
+    <button onclick="fecharModal()">Cancelar</button>
+
+  </div>
+</div>
 </body>
 </html>

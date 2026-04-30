@@ -7,11 +7,18 @@
   <title>Gráficos de Ocorrências</title>
   <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600&display=swap" rel="stylesheet">
   <style>
-    body{font-family:'Rubik',sans-serif;background:#fff3e0;margin:0}
+    body{font-family:'Rubik',sans-serif;background:#f4f6f9;margin:0}
     header{background:#ff9800;color:#fff;text-align:center;padding:20px 0}
     .container{max-width:1200px;margin:30px auto;padding:0 16px}
     .row{display:flex;flex-wrap:wrap;gap:20px}
-    .card{background:#fff;border-radius:12px;box-shadow:0 6px 12px rgba(0,0,0,.1);padding:16px;flex:1 1 520px;min-width:320px}
+    .card{
+  background:#fff;
+  border-radius:12px;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
+  padding:16px;
+  flex:1 1 520px;
+  min-width:320px
+}
     h2,h3{margin:8px 0}
     .filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;align-items:end}
     .filters label{display:block;font-size:.9rem;margin-bottom:4px}
@@ -102,12 +109,32 @@
   </div>
 
   <!-- Análise automática -->
-  <div class="analysis">
-    <h4>📊 Análise dos Resultados</h4>
-    <p id="resumoFiltros" class="muted"></p>
-    <p id="textoAnalise" style="font-size:1.05em; line-height:1.6; color:#333;"></p>
-    <a href="{% url 'home' %}" class="btn">VOLTAR</a>
+  <div class="row">
+
+  <div class="card">
+    <h3>📊 Motivo mais frequente</h3>
+    <p id="insightPrincipal"></p>
   </div>
+
+  <div class="card">
+    <h3>📍 Distrito mais Crítico</h3>
+    <p id="insightDistrito"></p>
+  </div>
+
+  <div class="card">
+    <h3>📈 Tendência para o Período</h3>
+    <p id="insightTendencia"></p>
+  </div>
+
+  <div class="card">
+    <h3>⚠️ Risco</h3>
+    <p id="insightRisco"></p>
+  </div>
+
+</div>
+
+<div style="text-align:center; margin-top:20px;">
+  <a href="{% url 'home' %}" class="btn">VOLTAR</a>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -135,7 +162,7 @@
   const motivos = [...new Set(data.map(d => d.y))];
 
   const series = motivos.map(motivo => ({
-    name: motivo,
+    name: formatarTexto(motivo),
     data: meses.map(mes => {
       const item = data.find(d => d.x === mes && d.y === motivo);
       return item ? item.v : 0;
@@ -182,22 +209,89 @@
 
   return chart;
 }
+function formatarTexto(txt){
+  const ignore = ['de','da','do','dos','das'];
 
-  function buildBar(ctx, labels, data){
-    return new Chart(ctx, {
-      type: 'bar',
-      data: { labels, datasets: [{ label: 'Ocorrências', data, borderWidth: 1 }] },
-      options: { responsive: true, scales: { y: { beginAtZero: true, ticks:{stepSize:1} } } }
-    });
-  }
+  return txt
+    .toLowerCase()
+    .split(' ')
+    .map((p,i) => 
+      (i > 0 && ignore.includes(p)) 
+        ? p 
+        : p.charAt(0).toUpperCase() + p.slice(1)
+    )
+    .join(' ');
+}
+ function buildBar(ctx, labels, data){
+  return new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        borderRadius: 8,
+        backgroundColor: '#1f77b4'
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#333',
+          titleColor: '#fff',
+          bodyColor: '#fff'
+        }
+      },
+      scales: {
+        x: { beginAtZero: true },
+        y: { grid: { display: false } }
+      },
+      onClick: (e, elements) => {
+        if(elements.length > 0){
+          const index = elements[0].index;
+          const label = labels[index];
 
-  function buildDoughnut(ctx, labels, data){
-    return new Chart(ctx, {
-      type: 'doughnut',
-      data: { labels, datasets: [{ label: 'Ocorrências', data }] },
-      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
-    });
-  }
+          document.getElementById('motivo').value = label;
+          document.getElementById('filters').dispatchEvent(new Event('submit'));
+        }
+      }
+    }
+  });
+}
+
+function buildDoughnut(ctx, labels, data){
+  return new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: [
+          '#1f77b4','#ff7f0e','#2ca02c','#d62728',
+          '#9467bd','#8c564b','#e377c2','#7f7f7f'
+        ],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      cutout: '65%',
+      plugins: {
+        legend: { position: 'right' }
+      },
+      onClick: (e, elements) => {
+        if(elements.length > 0){
+          const index = elements[0].index;
+          const label = labels[index];
+
+          document.getElementById('distrito').value = label;
+          document.getElementById('filters').dispatchEvent(new Event('submit'));
+        }
+      }
+    }
+  });
+}
 function buildMultiLine(ctx, labels, series){
     // paleta de cores amigável
     const palette = [
@@ -290,8 +384,10 @@ function formatarMes(m){
     if(chartEvolucao)  chartEvolucao.destroy();
     
 
-    chartMotivos   = buildBar(document.getElementById('chartMotivos'), m.labels, m.data);
-    chartDistritos = buildDoughnut(document.getElementById('chartDistritos'), d.labels, d.data);
+    const labelsFormatados = m.labels.map(formatarTexto);
+    chartMotivos = buildBar(  document.getElementById('chartMotivos'),  labelsFormatados,  m.data);
+    const distritosFormatados = d.labels.map(formatarTexto);
+    chartDistritos = buildDoughnut(  document.getElementById('chartDistritos'),  distritosFormatados,  d.data);
 
     const noMsg  = document.getElementById('no-evolucao');
     const canvas = document.getElementById('chartEvolucao');
@@ -331,180 +427,140 @@ function formatarMes(m){
     return p.length?`Filtros aplicados — ${p.join(' · ')}`:'Panorama geral (sem filtros aplicados).';
   }
 
-  function gerarAnalise(payload, params={}){
-    const alvo=document.getElementById("textoAnalise");
-    const resumo=document.getElementById("resumoFiltros");
-    resumo.textContent = formatResumo(params);
+  
+function gerarAnalise(payload, params={}){
 
-    const m=payload.motivos||{labels:[],data:[]};
-    const d=payload.distritos||{labels:[],data:[]};
-    const total=(m.data||[]).reduce((a,b)=>a+b,0);
-    if(!total){ alvo.innerHTML='Não há registros para os filtros selecionados.'; return; }
+  const m = payload.motivos || {labels:[],data:[]};
+  const d = payload.distritos || {labels:[],data:[]};
+  const total = (m.data||[]).reduce((a,b)=>a+b,0);
 
-    let motivoMais='—', motivoQtd=0;
-    if(m.data.length){ const i=m.data.indexOf(Math.max(...m.data)); motivoMais=m.labels[i]; motivoQtd=m.data[i]; }
-    let distritoMais='—', distritoQtd=0;
-    if(d.data.length){ const i=d.data.indexOf(Math.max(...d.data)); distritoMais=d.labels[i]; distritoQtd=d.data[i]; }
-
-    const partMotivo = Math.round((motivoQtd/total)*100);
-    const partDistrito = Math.round((distritoQtd/total)*100);
-    
-// 🔥 BASE (PRIMEIRO DE TUDO)
-const ev = payload.evolucao_mensal_motivos || { labels: [], series: [] };
-let totalPorMes = [];
-let media = 0;
-let ultimoMes = 0;
-
-if (Array.isArray(ev.labels) && ev.labels.length && Array.isArray(ev.series) && ev.series.length) {
-  totalPorMes = ev.labels.map((_, i) => {
-    return ev.series.reduce((acc, s) => acc + (s.data[i] || 0), 0);
-  });
-
-  if (totalPorMes.length) {
-    const soma = totalPorMes.reduce((a,b)=>a+b,0);
-    media = soma / totalPorMes.length;
-    ultimoMes = totalPorMes[totalPorMes.length - 1];
+  if(!total){
+    document.getElementById("insightPrincipal").innerHTML = "Sem dados";
+    document.getElementById("insightDistrito").innerHTML = "-";
+    document.getElementById("insightTendencia").innerHTML = "-";
+    document.getElementById("insightRisco").innerHTML = "-";
+    return;
   }
-}
-const mesesChuva = ["11","12","01","02","03"];
 
-let somaChuva = 0, countChuva = 0;
-let somaSeca = 0, countSeca = 0;
-
-ev.labels.forEach((label, i) => {
-  const [, mes] = label.split("-");
-  const valor = totalPorMes[i] || 0;
-
-  if (mesesChuva.includes(mes)) {
-    somaChuva += valor;
-    countChuva++;
-  } else {
-    somaSeca += valor;
-    countSeca++;
+  let motivoMais='—', motivoQtd=0;
+  if(m.data.length){
+    const i = m.data.indexOf(Math.max(...m.data));
+    motivoMais = formatarTexto(m.labels[i]);
+    motivoQtd = m.data[i];
   }
-});
 
-const mediaChuva = countChuva ? (somaChuva / countChuva) : 0;
-const mediaSeca = countSeca ? (somaSeca / countSeca) : 0;
-
-let comparacaoAno = "sem dados comparativos";
-
-if (totalPorMes.length >= 13) {
-  const atual = totalPorMes.at(-1);
-  const anoAnterior = totalPorMes.at(-13);
-
-  if (anoAnterior) {
-    const variacao = ((atual - anoAnterior) / anoAnterior) * 100;
-
-    if (variacao > 20) comparacaoAno = "aumento em relação ao mesmo período do ano anterior";
-    else if (variacao < -20) comparacaoAno = "redução em relação ao mesmo período do ano anterior";
-    else comparacaoAno = "estabilidade em relação ao ano anterior";
+  let distritoMais='—', distritoQtd=0;
+  if(d.data.length){
+    const i = d.data.indexOf(Math.max(...d.data));
+    distritoMais = d.labels[i];
+    distritoQtd = d.data[i];
   }
-}
-let sazonalidade = "dentro do padrão";
 
-if (media > 0) {
-  const indice = ultimoMes / media;
+  const partMotivo = Math.round((motivoQtd/total)*100);
+  const partDistrito = Math.round((distritoQtd/total)*100);
 
-  if (indice > 1.5) sazonalidade = "fortemente sazonal (acima do esperado)";
-  else if (indice > 1.2) sazonalidade = "moderadamente sazonal";
-  else if (indice < 0.8) sazonalidade = "abaixo do padrão esperado";
-}
-    // 🔥 CLASSIFICAÇÃO DE RISCO
-let risco = "BAIXO";
-let corRisco = "#2e7d32"; // verde
-if (total > 30) {
-  risco = "ALTO";
-  corRisco = "#c62828"; // vermelho
-} else if (total > 10) {
-  risco = "MODERADO";
-  corRisco = "#f9a825"; // amarelo
-}
+ // NOVA TENDÊNCIA (POR PERÍODO COMPLETO)
 
-    // 🔥 CALCULAR MÊS CRÍTICO E TENDÊNCIA
-
-let mesCritico = "—";
 let tendencia = "estável";
+let variacao = 0;
 
-if (Array.isArray(ev.labels) && ev.labels.length > 0 && Array.isArray(ev.series) && ev.series.length > 0) {
+const ev = payload.evolucao_mensal_motivos || {labels:[],series:[]};
 
-  totalPorMes = ev.labels.map((_, i) => {
-    return ev.series.reduce((acc, s) => acc + (s.data[i] || 0), 0);
-  });
+if(ev.labels.length >= 3){
 
-  if (totalPorMes.length > 0) {
-    const maiorValor = Math.max(...totalPorMes);
-    const idx = totalPorMes.indexOf(maiorValor);
+  const totalMes = ev.labels.map((_,i)=>
+    ev.series.reduce((acc,s)=>acc+(s.data[i]||0),0)
+  );
 
-    if (idx !== -1) {
-      mesCritico = ev.labels[idx];
-    }
-  }
+  const media = totalMes.reduce((a,b)=>a+b,0) / totalMes.length;
 
-  if (totalPorMes.length >= 2) {
-    const ult = totalPorMes[totalPorMes.length - 1];
-    const penult = totalPorMes[totalPorMes.length - 2];
+  const ultimos3 = totalMes.slice(-3);
+  const mediaRecente = ultimos3.reduce((a,b)=>a+b,0) / ultimos3.length;
 
-    if (ult > penult) tendencia = "crescimento";
-    else if (ult < penult) tendencia = "queda";
-  }
-}
-const nomesMeses = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
-];
+  variacao = ((mediaRecente - media) / media) * 100;
 
-let mesFormatado = "—";
+} else if(ev.labels.length === 2){
 
-if (mesCritico !== "—") {
-  const [ano, mes] = mesCritico.split("-");
-  mesFormatado = `${nomesMeses[parseInt(mes) - 1]} de ${ano}`;
-}
-  const extra = payload.analise_extra || {};
-  const mesAnomalo = extra.mes_anomalo || null;
-  const crescimento = extra.crescimento ?? null;
-  const topBairros = extra.top_bairros || [];
-  const mediaMensal = extra.media_mensal ?? 0;
-  const mesAnomaloFormatado = formatarMes(mesAnomalo);
-  const texto = `
+  const totalMes = ev.labels.map((_,i)=>
+    ev.series.reduce((acc,s)=>acc+(s.data[i]||0),0)
+  );
 
-<strong>1. Análise Geral</strong><br>
-O principal tipo de ocorrência identificado foi <strong>${motivoMais}</strong>, com 
-<strong>${motivoQtd}</strong> registros (${partMotivo}% do total).
+  const mes1 = totalMes[0];
+  const mes2 = totalMes[1];
 
-<br><br>
-
-<strong>2. Distribuição Territorial</strong><br>
-O distrito de <strong>${distritoMais}</strong> concentrou o maior volume de ocorrências 
-(${distritoQtd} registros), indicando necessidade de atenção prioritária.
-
-<br><br>
-
-<strong>3. Comportamento Temporal</strong><br>
-A média MENSAL de ocorrências no período foi de <strong>${Math.round(mediaMensal)}</strong> registros.
-${mesAnomaloFormatado ? `<br>Foi identificado um pico fora do padrão no mês de <strong>${mesAnomaloFormatado}</strong>, indicando evento atípico relevante.` 
-: ""
+  variacao = ((mes2 - mes1) / mes1) * 100;
 }
 
-<br><br>
+// classificação
+if(variacao > 15) tendencia = "crescimento";
+else if(variacao < -15) tendencia = "queda";
 
-<strong>4. Bairros com maior número de ocorrências</strong><br>
-Os bairros que apresentaram o maior número de ocorrências foram: <strong>${topBairros.join(", ")}</strong>.
+  // 🔥 NOVO CÁLCULO DE RISCO (INTELIGENTE)
 
-<br><br>
+// 1. VOLUME
+let score = 0;
 
-<strong>5. Análise Sazonal</strong><br>
-Durante o período chuvoso, a média foi de <strong>${Math.round(mediaChuva)}</strong> ocorrências, 
-enquanto no período seco foi de <strong>${Math.round(mediaSeca)}</strong>, indicando 
-${mediaChuva > mediaSeca ? "maior criticidade em períodos de chuva" : "comportamento estável entre períodos"}.
+if(total > 30) score += 2;
+else if(total > 10) score += 1;
 
-<br><br>
+// 2. TENDÊNCIA
+if(tendencia === "crescimento") score += 2;
+else if(tendencia === "estável") score += 1;
 
-<strong>6. Conclusão</strong><br>
-Os dados indicam necessidade de monitoramento contínuo, com atenção especial aos períodos críticos e 
-regiões com maior recorrência, visando ações preventivas mais eficazes.
-`;
-alvo.innerHTML = texto;
+// 3. ÁREA DE RISCO (se existir no backend)
+let riscoArea = payload.area_risco || [];
+
+if(riscoArea.includes("R3") || riscoArea.includes("R4")){
+  score += 2;
+}else if(riscoArea.includes("R2")){
+  score += 1;
+}
+
+// 🔥 CLASSIFICAÇÃO FINAL
+let risco = "BAIXO";
+let corRisco = "#2e7d32";
+
+if(score >= 4){
+  risco = "ALTO";
+  corRisco = "#c62828";
+}else if(score >= 2){
+  risco = "MODERADO";
+  corRisco = "#f9a825";
+}
+
+  // 🔥 ATUALIZA OS CARDS
+  document.getElementById("insightPrincipal").innerHTML =
+    `${motivoMais} corresponde ao motivo com maior número de ocorrências, com ${motivoQtd} registros (${partMotivo}%).`;
+
+  document.getElementById("insightDistrito").innerHTML =
+    `${distritoMais} é o distrito com maior número de ocorrências, com ${distritoQtd} registros (${partDistrito}%).`;
+
+  let corTendencia = "#555";
+
+if(tendencia === "crescimento") corTendencia = "#c62828";
+if(tendencia === "queda") corTendencia = "#2e7d32";
+
+document.getElementById("insightTendencia").innerHTML =
+  `<span style="color:${corTendencia}; font-weight:bold">
+    ${tendencia.toUpperCase()}
+  </span>
+  <br><small>Variação: ${variacao.toFixed(1)}%</small>`;
+
+  let fraseRisco = "";
+
+if(risco === "ALTO"){
+  fraseRisco = "Média de ocorrências elevada com tendência de crescimento — atenção imediata recomendada.";
+}
+else if(risco === "MODERADO"){
+  fraseRisco = "Ocorrências em nível intermediário — Manter monitoramento.";
+}
+else{
+  fraseRisco = "Baixo volume de ocorrências — situação sob controle.";
+}
+
+document.getElementById("insightRisco").innerHTML =
+  `<span style="color:${corRisco}; font-weight:bold; font-size:18px">${risco}</span>
+   <br><small>${fraseRisco}</small>`;
 }
 
   async function load(params={}){

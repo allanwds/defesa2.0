@@ -9,7 +9,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.http import require_POST
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.db.models import Count, Q
 from django.db import IntegrityError, DatabaseError, transaction
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
@@ -157,9 +157,12 @@ def salvar_ocorrencia(request):
 # --------------------- EDIÇÃO / EXCLUSÃO ---------------------
 
 @login_required
+
+
 @require_POST
 def editar_ocorrencia_inline(request, id):
     ocorrencia = get_object_or_404(Ocorrencia, id=id)
+
     ocorrencia.numero = request.POST.get('numero')
     ocorrencia.sigrc = request.POST.get('sigrc')
     ocorrencia.endereco = request.POST.get('endereco')
@@ -168,9 +171,10 @@ def editar_ocorrencia_inline(request, id):
     ocorrencia.area_risco = request.POST.get('area_risco')
     ocorrencia.motivo = request.POST.get('motivo')
     ocorrencia.data = request.POST.get('data')
-    ocorrencia.save()
-    return redirect('lista_ocorrencias')
 
+    ocorrencia.save()
+
+    return JsonResponse({'status': 'ok'})
 
 @login_required
 def excluir_ocorrencia(request, id):
@@ -252,7 +256,6 @@ def graficos_data(request):
          .str.strip()
         .str.lower()
 )
-
 # 🔥 PADRONIZAÇÃO (resolve duplicidade)
     df['motivo'] = df['motivo'].replace({
     'rachadura em edificações': 'Rachadura em edificações',
@@ -260,7 +263,6 @@ def graficos_data(request):
     'rachadura em residencia': 'Rachadura em edificações',
     'rachadura em residências': 'Rachadura em edificações',
 })
-
 # 🔥 remove lixo
     df = df.dropna(subset=['data', 'motivo'])
 
@@ -271,17 +273,13 @@ def graficos_data(request):
          "evolucao_mensal_motivos": {"labels": [], "series": []},
          "heatmap": []
 })
-
     # ---------------- TRATAMENTO ----------------
     df['data'] = pd.to_datetime(df['data'])
     df['mes'] = df['data'].dt.to_period('M').astype(str)
-
     # ---------------- MOTIVOS ----------------
     motivos = df['motivo'].value_counts()
-
     # ---------------- DISTRITOS ----------------
     distritos = df['distrito'].value_counts()
-
     # ---------------- PIVOT (BASE DE TUDO) ----------------
     pivot = pd.pivot_table(
         df,
@@ -290,9 +288,7 @@ def graficos_data(request):
         aggfunc='size',
         fill_value=0
     )
-
     pivot = pivot.sort_index()
-
     # ---------------- SERIES (GRÁFICO LINHA) ----------------
     labels_mes = pivot.index.tolist()
 
@@ -302,10 +298,8 @@ def graficos_data(request):
             "label": col,
             "data": pivot[col].tolist()
         })
-
     # ---------------- HEATMAP ----------------
     heatmap_data = []
-
     for mes in pivot.index:
         for mot in pivot.columns:
             heatmap_data.append({
@@ -315,7 +309,6 @@ def graficos_data(request):
             })
 #  AGRUPAMENTO MENSAL
     mensal = df.groupby('mes').size().sort_index()
-
 #  MÉDIA E DESVIO (ANOMALIA)
     media = mensal.mean()
     desvio = mensal.std()
