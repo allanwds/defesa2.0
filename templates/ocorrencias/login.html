@@ -91,6 +91,22 @@ h3 {
   font-size:0.8em;
   color:#999;
 }
+.btn-api {
+  margin-top:10px;
+  width:100%;
+  padding:12px;
+  border:none;
+  border-radius:25px;
+  background:#424242;
+  color:white;
+  font-size:1em;
+  cursor:pointer;
+  transition:0.3s;
+}
+
+.btn-api:hover {
+  background:#212121;
+}
 </style>
 </head>
 
@@ -120,6 +136,10 @@ h3 {
     <button type="submit" class="btn-primary">Entrar</button>
   </form>
 
+<button type="button" class="btn-api" id="copyApiBtn">
+  Copiar Link da API
+</button>
+
   <div class="footer">
     Sistema de Ocorrências
   </div>
@@ -131,6 +151,20 @@ h3 {
 document.getElementById("togglePassword").addEventListener("click", function() {
   let senha = document.getElementById("password");
   senha.type = senha.type === "password" ? "text" : "password";
+});
+
+document.getElementById("copyApiBtn").addEventListener("click", function() {
+
+  const apiLink = "https://defesa2-0.onrender.com/api/ocorrencias/";
+
+  navigator.clipboard.writeText(apiLink);
+
+  this.innerText = "✅ API COPIADA";
+
+  setTimeout(() => {
+    this.innerText = "Link da API";
+  }, 3000);
+
 });
 </script>
 

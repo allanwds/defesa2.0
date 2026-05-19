@@ -115,11 +115,11 @@ input:focus, select:focus{ border-color:#fb8c00;  outline:none;  background:#fff
 <div class="form-group small">
 <label for="area_risco">Risco</label>
 <select name="area_risco">
-<option value="0">0</option>
-<option value="1">1</option>
-<option value="2">2</option>
-<option value="3">3</option>
-<option value="4">4</option>
+<option value="0">NDA</option>
+<option value="1">R1</option>
+<option value="2">R2</option>
+<option value="3">R3</option>
+<option value="4">R4</option>
 </select>
 </div>
 
@@ -132,6 +132,7 @@ input:focus, select:focus{ border-color:#fb8c00;  outline:none;  background:#fff
       <option value="Desabamento" {% if val == 'Desabamento' %}selected{% endif %}>Desabamento</option>
       <option value="Deslizamento" {% if val == 'Deslizamento' %}selected{% endif %}>Deslizamento</option>
       <option value="Erosão na via" {% if val == 'Erosão na via' %}selected{% endif %}>Erosão na via</option>
+      <option value="Incêncio" {% if val == 'Incêncio' %}selected{% endif %}>Incêncio</option>
       <option value="Inundação" {% if val == 'Inundação' %}selected{% endif %}>Inundação</option>
       <option value="Queda de árvore" {% if val == 'Queda de árvore' %}selected{% endif %}>Queda de árvore</option>
       <option value="Rachadura em Edificação" {% if val == 'Rachadura em Edificação' %}selected{% endif %}>Rachadura em edificação</option>
