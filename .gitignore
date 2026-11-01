@@ -4,3 +4,5 @@ __pycache__/
 *.pyc
 ml/dados/
 ml/modelos/
+requirements-local.txt
+ocorrencias.json

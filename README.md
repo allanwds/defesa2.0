@@ -15,24 +15,28 @@ Os passos abaixo rodam tudo em um banco SQLite local, sem tocar no banco de prod
 
 ### 1. Pré-requisitos
 
-- Python 3.11 ou superior
 - Git
+- [uv](https://docs.astral.sh/uv/), que instala o Python e as dependências. No macOS e Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+
+O Python precisa ser 3.11 ou superior. O `python3` que vem com o macOS (3.9) é antigo demais, por isso o `uv` baixa uma versão adequada no passo seguinte.
 
 ### 2. Instalar
 
+O dashboard está na branch `feat/dashboard-ml`, que não é a padrão do repositório:
+
 ```bash
-git clone https://github.com/allanwds/defesa2.0.git
+git clone --branch feat/dashboard-ml https://github.com/allanwds/defesa2.0.git
 cd defesa2.0
 
-python3 -m venv .venv-local
+uv venv --python 3.13 .venv-local
 source .venv-local/bin/activate
 
-grep -v '^psycopg2==' requirements.txt > /tmp/requirements-local.txt
-echo psycopg2-binary >> /tmp/requirements-local.txt
-pip install -r /tmp/requirements-local.txt -r ml/requirements.txt
+grep -v '^psycopg2==' requirements.txt > requirements-local.txt
+echo psycopg2-binary >> requirements-local.txt
+uv pip install -r requirements-local.txt -r ml/requirements.txt
 ```
 
-No Windows, ative o ambiente com `.venv-local\Scripts\activate`.
+No Windows, ative o ambiente com `.venv-local\Scripts\activate`. Sem o `uv`, use `python3.13 -m venv .venv-local` e `pip install` com os mesmos arquivos.
 
 ### 3. Criar o banco local e importar as ocorrências
 
