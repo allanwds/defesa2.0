@@ -1,0 +1,6 @@
+db.sqlite3
+.venv-local/
+__pycache__/
+*.pyc
+ml/dados/
+ml/modelos/

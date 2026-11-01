@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard com Machine Learning · Defesa Civil</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    :root{
+      --marca:#ff9800; --marca-escura:#e65100; --fundo:#f3f4f7; --cartao:#fff; --texto:#1f2430; --suave:#667085;
+      --borda:#e7e9ee; --raio:12px; --sombra:0 1px 2px rgba(16,24,40,.06),0 2px 10px rgba(16,24,40,.05);
+      --ok-bg:#e3f4ea; --ok:#17663f; --medio-bg:#fff1cc; --medio:#8a5a00; --alto-bg:#fde3da; --alto:#a3361a;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;font-family:'Rubik',system-ui,sans-serif;background:var(--fundo);color:var(--texto);line-height:1.45;-webkit-text-size-adjust:100%}
+    a{color:inherit}
+    :focus-visible{outline:3px solid #1a73e8;outline-offset:2px;border-radius:6px}
+
+    .topo{background:linear-gradient(135deg,#ff9800,#f57c00);color:#fff}
+    .topo-in{max-width:1240px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+    .topo h1{margin:0;font-size:1.15rem;font-weight:600;letter-spacing:.2px;flex:1 1 auto}
+    .topo h1 small{display:block;font-weight:400;font-size:.8rem;opacity:.9;letter-spacing:0}
+    .topo nav{display:flex;gap:8px}
+    .topo nav a{text-decoration:none;font-size:.85rem;padding:7px 14px;border-radius:999px;background:rgba(255,255,255,.18);transition:background .15s}
+    .topo nav a:hover{background:rgba(255,255,255,.32)}
+
+    .barra{position:sticky;top:0;z-index:500;background:rgba(243,244,247,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--borda)}
+    .barra-in{max-width:1240px;margin:0 auto;padding:10px 20px;display:flex;gap:14px;align-items:end;flex-wrap:wrap}
+    .campo label{display:block;font-size:.72rem;font-weight:500;text-transform:uppercase;letter-spacing:.6px;color:var(--suave);margin-bottom:4px}
+    select{font:inherit;font-size:.92rem;padding:8px 32px 8px 12px;border:1px solid #d0d5dd;border-radius:10px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23667085' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 12px center;appearance:none;min-width:170px;color:var(--texto);cursor:pointer}
+    select:hover{border-color:#98a2b3}
+    .btn{font:inherit;font-size:.88rem;padding:8px 14px;border:1px solid #d0d5dd;border-radius:10px;background:#fff;cursor:pointer;color:var(--texto)}
+    .btn:hover{background:#f9fafb}
+    .btn.marca{background:var(--marca);border-color:var(--marca);color:#fff}
+    .btn.marca:hover{background:#f57c00}
+    .status{margin-left:auto;font-size:.8rem;color:var(--suave);align-self:center}
+    .progresso{height:3px;background:transparent;overflow:hidden}
+    .progresso::after{content:"";display:block;height:100%;width:35%;background:var(--marca);transform:translateX(-100%);opacity:0}
+    body.carregando .progresso::after{opacity:1;animation:corre 1s ease-in-out infinite}
+    @keyframes corre{to{transform:translateX(300%)}}
+
+    main{max-width:1240px;margin:0 auto;padding:18px 20px 40px}
+    .grade{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}
+    .c12{grid-column:span 12}.c6{grid-column:span 6}.c4{grid-column:span 4}.c8{grid-column:span 8}
+    .cartao{background:var(--cartao);border-radius:var(--raio);box-shadow:var(--sombra);padding:18px;min-width:0;transition:opacity .2s}
+    body.carregando .cartao[data-filtravel]{opacity:.55}
+    .cartao h2{margin:0;font-size:1.02rem;font-weight:600}
+    .sub{color:var(--suave);font-size:.86rem;margin:3px 0 12px}
+    .aviso{border-left:4px solid var(--marca);background:#fff8e8;padding:11px 14px;border-radius:10px;font-size:.9rem;color:#5b4300}
+    .aviso.erro{border-color:#c62828;background:#fdecea;color:#7a1c1c;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+
+    .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+    .kpi{background:var(--cartao);border-radius:var(--raio);box-shadow:var(--sombra);padding:14px 16px;border-top:3px solid var(--marca)}
+    .kpi b{display:block;font-size:1.8rem;font-weight:600;color:var(--marca-escura);line-height:1.15;font-variant-numeric:tabular-nums}
+    .kpi span{font-size:.8rem;color:var(--suave)}
+    .esqueleto{background:linear-gradient(90deg,#eceef2 25%,#f6f7f9 50%,#eceef2 75%);background-size:200% 100%;animation:brilho 1.3s infinite;border-radius:8px;color:transparent!important}
+    @keyframes brilho{to{background-position:-200% 0}}
+
+    .grafico{position:relative;height:clamp(230px,34vh,330px)}
+    .grafico.baixo{height:clamp(200px,28vh,260px)}
+    .vazio{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;color:var(--suave);font-size:.9rem;padding:20px}
+    .grafico.sem-dados .vazio{display:flex}.grafico.sem-dados canvas{visibility:hidden}
+    #mapa{height:clamp(260px,38vh,340px);border-radius:10px;z-index:0}
+    .legenda{display:flex;gap:14px;flex-wrap:wrap;font-size:.78rem;color:var(--suave);margin-top:10px}
+    .legenda i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+
+    .controles{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+    .tabela-rolavel{overflow-x:auto;margin-top:12px;border:1px solid var(--borda);border-radius:10px}
+    table{border-collapse:collapse;width:100%;font-size:.88rem;font-variant-numeric:tabular-nums}
+    th{background:#f8f9fb;font-weight:500;color:var(--suave);font-size:.76rem;text-transform:uppercase;letter-spacing:.5px}
+    th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--borda);white-space:nowrap}
+    tr:last-child td{border-bottom:0}
+    tbody tr:hover{background:#fafbfc}
+    .nivel{display:inline-block;padding:2px 10px;border-radius:999px;font-weight:500;font-size:.75rem;margin-left:6px}
+    .nivel.baixo{background:var(--ok-bg);color:var(--ok)}.nivel.medio{background:var(--medio-bg);color:var(--medio)}.nivel.alto{background:var(--alto-bg);color:var(--alto)}
+    .semana{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+    .semana .kpi b{font-size:1.5rem}
+    .selos{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+    .selo{font-size:.78rem;background:#f1f3f6;color:#475467;padding:4px 10px;border-radius:999px}
+    footer{max-width:1240px;margin:0 auto;padding:0 20px 28px;color:var(--suave);font-size:.78rem}
+
+    @media (max-width:980px){.c6,.c4,.c8{grid-column:span 12}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media (max-width:560px){
+      .topo-in,.barra-in,main{padding-left:14px;padding-right:14px}
+      .topo h1{font-size:1.02rem}.topo nav{width:100%}.topo nav a{flex:1;text-align:center}
+      .barra{position:static}.barra-in{gap:10px}.campo{flex:1 1 130px}select{width:100%;min-width:0}.status{display:none}
+      .grade,.kpis{gap:12px}.cartao{padding:14px}.kpi b{font-size:1.45rem}
+      th,td{padding:8px 9px}
+    }
+    @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+    @media print{.barra,.topo nav,.progresso{display:none}.cartao,.kpi{box-shadow:none;border:1px solid #ddd;break-inside:avoid}}
+  </style>
+</head>
+<body class="carregando">
+<header class="topo">
+  <div class="topo-in">
+    <h1>Dashboard com Machine Learning<small>Defesa Civil · M'Boi Mirim (DDEC-MB)</small></h1>
+    <nav aria-label="Navegação"><a href="{% url 'home' %}">Início</a><a href="{% url 'graficos_page' %}">Gráficos</a></nav>
+  </div>
+</header>
+
+<div class="barra" role="search" aria-label="Filtros">
+  <div class="barra-in">
+    <div class="campo"><label for="f-distrito">Distrito</label><select id="f-distrito"><option value="">Todos</option></select></div>
+    <div class="campo"><label for="f-ano">Ano</label><select id="f-ano"><option value="">Todos</option></select></div>
+    <button type="button" class="btn" id="f-limpar">Limpar</button>
+    <span class="status" id="status" role="status" aria-live="polite"></span>
+  </div>
+  <div class="progresso" aria-hidden="true"></div>
+</div>
+
+<main>
+  <div id="aviso-cobertura" style="margin-bottom:16px"></div>
+  <div id="erro" style="margin-bottom:16px"></div>
+
+  <section class="kpis" id="kpis" style="margin-bottom:16px" aria-label="Indicadores">
+    <div class="kpi"><b class="esqueleto">000</b><span class="esqueleto">carregando</span></div>
+    <div class="kpi"><b class="esqueleto">000</b><span class="esqueleto">carregando</span></div>
+    <div class="kpi"><b class="esqueleto">000</b><span class="esqueleto">carregando</span></div>
+    <div class="kpi"><b class="esqueleto">000</b><span class="esqueleto">carregando</span></div>
+  </section>
+
+  <div class="grade">
+    <section class="cartao c12" data-filtravel>
+      <h2>Ocorrências por mês e qualidade do cadastro</h2>
+      <p class="sub">Barras cinza são meses com cadastro incompleto: o número baixo reflete registros que faltam, não menos chamados.</p>
+      <div class="grafico" id="g-mensal"><canvas id="c-mensal" role="img" aria-label="Ocorrências por mês"></canvas><div class="vazio">Nenhuma ocorrência para este filtro.</div></div>
+    </section>
+
+    <section class="cartao c12">
+      <h2>Próxima semana</h2>
+      <div id="proxima" style="margin-top:8px"></div>
+    </section>
+
+    <section class="cartao c12">
+      <h2>Demanda semanal esperada, por mês</h2>
+      <p class="sub">Média de ocorrências por semana em cada distrito, com a faixa entre o 10º e o 90º percentil do histórico da mesma época. Serve para planejar, não para prever um dia específico. Vale para os dois distritos, independentemente do filtro.</p>
+      <div class="grafico" id="g-esperado"><canvas id="c-esperado" role="img" aria-label="Demanda semanal esperada por mês e distrito"></canvas><div class="vazio">Modelo ainda não treinado.</div></div>
+      <div class="tabela-rolavel" id="t-esperado"></div>
+      <p class="sub" style="margin:10px 0 0">Nível: <span class="nivel baixo" style="margin:0">Baixa</span> <span class="nivel medio">Média</span> <span class="nivel alto">Alta</span> comparam a semana esperada com o histórico semanal do próprio distrito (terços inferior, médio e superior).</p>
+    </section>
+
+    <section class="cartao c6">
+      <h2>Tipo provável de ocorrência</h2>
+      <p class="sub">Probabilidade de cada grupo de motivo, dada a área de risco e a época do ano.</p>
+      <div class="controles">
+        <div class="campo"><label for="p-area">Área de risco</label><select id="p-area"></select></div>
+        <div class="campo"><label for="p-epoca">Época</label><select id="p-epoca">
+          <option value="verao">Verão (jan–fev)</option><option value="chuvosa">Chuvosa (out–dez, mar)</option><option value="seca">Seca (abr–set)</option></select></div>
+      </div>
+      <div class="grafico baixo" id="g-tipo"><canvas id="c-tipo" role="img" aria-label="Probabilidade por tipo de ocorrência"></canvas><div class="vazio">Modelo ainda não treinado.</div></div>
+      <p class="sub" id="aviso-tipo" style="margin:10px 0 0"></p>
+    </section>
+
+    <section class="cartao c6" data-filtravel>
+      <h2>Motivos mais frequentes</h2>
+      <p class="sub">Os 8 motivos com mais registros no filtro atual.</p>
+      <div class="grafico" id="g-motivo"><canvas id="c-motivo" role="img" aria-label="Motivos mais frequentes"></canvas><div class="vazio">Nenhuma ocorrência para este filtro.</div></div>
+    </section>
+
+    <section class="cartao c6" data-filtravel>
+      <h2>Ocorrências por área de risco</h2>
+      <p class="sub">A área 0 reúne as ocorrências sem área de risco mapeada.</p>
+      <div class="grafico" id="g-area"><canvas id="c-area" role="img" aria-label="Ocorrências por área de risco"></canvas><div class="vazio">Nenhuma ocorrência para este filtro.</div></div>
+    </section>
+
+    <section class="cartao c6" data-filtravel>
+      <h2>Mapa das ocorrências</h2>
+      <p class="sub">Cada ponto é uma ocorrência com coordenadas; passe o mouse para ver o motivo.</p>
+      <div id="mapa" role="application" aria-label="Mapa das ocorrências"></div>
+      <div class="legenda" id="leg-mapa"></div>
+    </section>
+
+    <section class="cartao c12">
+      <h2>Como o modelo se comporta</h2>
+      <p class="sub" id="modelo-info"></p>
+      <div class="selos" id="selos"></div>
+      <div class="grafico" id="g-teste"><canvas id="c-teste" role="img" aria-label="Ocorrências observadas e previstas por semana"></canvas><div class="vazio">Sem semanas de teste.</div></div>
+      <div class="tabela-rolavel" id="t-modelo"></div>
+      <p class="sub" id="modelo-conclusao" style="margin:10px 0 0"></p>
+    </section>
+  </div>
+</main>
+<footer>Fonte: ocorrências cadastradas no sistema da Defesa Civil. Previsões geradas por Random Forest (scikit-learn); são apoio à decisão e trazem sempre a faixa de erro.</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const COR = {marca:'#fb8c00', azul:'#2a78d6', cinza:'#c9ccd3'};
+const COR_DIST = ['#2a78d6', '#eb6834', '#1baf7a'];
+const COR_AREA = ['#1baf7a', '#8bc34a', '#ffc107', '#fb8c00', '#c62828'];
+const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const NIVEL = {baixo:'Baixa', medio:'Média', alto:'Alta'};
+const graficos = {};
+let dados = null, mapa = null, camada = null, abortar = null, primeira = true;
+
+Chart.defaults.font.family = "'Rubik', system-ui, sans-serif";
+Chart.defaults.font.size = 12;
+Chart.defaults.color = '#667085';
+Chart.defaults.borderColor = '#eceef2';
+Chart.defaults.plugins.tooltip.backgroundColor = '#1f2430';
+Chart.defaults.plugins.tooltip.padding = 10;
+Chart.defaults.plugins.tooltip.cornerRadius = 8;
+Chart.defaults.plugins.legend.labels.usePointStyle = true;
+Chart.defaults.plugins.legend.labels.boxWidth = 8;
+Chart.defaults.maintainAspectRatio = false;
+
+const $ = id => document.getElementById(id);
+const el = (tag, texto, cls) => { const e = document.createElement(tag); if (texto != null) e.textContent = texto; if (cls) e.className = cls; return e; };
+const dataBR = iso => iso.split('-').reverse().join('/');
+const mesLabel = iso => { const [a, m] = iso.split('-'); return MESES[+m - 1] + '/' + a.slice(2); };
+const num = v => Number(v).toLocaleString('pt-BR', {maximumFractionDigits: 1});
+const nivel = n => el('span', NIVEL[n], 'nivel ' + n);
+
+function desenhar(id, config, vazio = false) {
+  if (graficos[id]) { graficos[id].destroy(); delete graficos[id]; }
+  const caixa = $('g-' + id.slice(2));
+  caixa.classList.toggle('sem-dados', vazio);
+  if (!vazio) graficos[id] = new Chart($(id), config);
+}
+
+async function carregar() {
+  if (abortar) abortar.abort();
+  abortar = new AbortController();
+  document.body.classList.add('carregando');
+  $('status').textContent = 'Atualizando…';
+  const q = new URLSearchParams({distrito: $('f-distrito').value, ano: $('f-ano').value});
+  try {
+    const resp = await fetch('{% url "dashboard_dados" %}?' + q, {signal: abortar.signal, headers: {Accept: 'application/json'}});
+    if (resp.redirected || resp.status === 401 || resp.status === 403) { location.reload(); return; }
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    dados = await resp.json();
+  } catch (e) {
+    if (e.name === 'AbortError') return;
+    mostrarErro(); return;
+  }
+  $('erro').replaceChildren();
+  preencherFiltros(); aviso(); kpis(); mensal(); proxima(); esperado(); tipos(); motivos(); areas(); mapaPontos(); modelo();
+  document.body.classList.remove('carregando');
+  $('status').textContent = 'Atualizado às ' + new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
+  primeira = false;
+}
+
+function mostrarErro() {
+  document.body.classList.remove('carregando');
+  $('status').textContent = '';
+  const caixa = el('div', null, 'aviso erro');
+  const b = el('button', 'Tentar de novo', 'btn marca'); b.type = 'button'; b.onclick = carregar;
+  caixa.append(el('span', 'Não foi possível carregar os dados. Verifique a conexão e tente novamente.'), b);
+  $('erro').replaceChildren(caixa);
+}
+
+function preencherFiltros() {
+  const d = $('f-distrito'), a = $('f-ano');
+  if (d.options.length === 1) dados.distritos.forEach(x => d.add(new Option(x === 'Selecione' ? 'Não informado' : x, x)));
+  if (a.options.length === 1) dados.anos.forEach(x => a.add(new Option(x, x)));
+}
+
+function aviso() {
+  const box = $('aviso-cobertura'); box.replaceChildren();
+  const m = dados.modelo;
+  if (!m) { box.append(el('div', 'Nenhum modelo foi treinado ainda. Rode: python manage.py gerar_previsoes', 'aviso erro')); return; }
+  box.append(el('div', `Atenção: o cadastro está completo em apenas ${dados.kpis.meses_completos_total} dos ${dados.kpis.meses_com_registro_total} meses com registro (cobertura confiável até ${dataBR(m.fim_cobertura)}). ` +
+    'Os modelos aprendem só com os períodos completos; por isso as previsões são aproximadas e sempre trazem a faixa de erro.', 'aviso'));
+}
+
+function kpis() {
+  const k = dados.kpis, box = $('kpis'); box.replaceChildren();
+  const filtro = [$('f-distrito').value, $('f-ano').value].filter(Boolean).join(' · ');
+  const itens = [[k.total.toLocaleString('pt-BR'), 'ocorrências' + (filtro ? ' (' + filtro + ')' : '')],
+    [k.meses_com_registro_total, 'meses com registro'], [k.meses_completos_total, 'meses com cadastro completo']];
+  if (dados.modelo) itens.push([dados.modelo.ocorrencias_treino.toLocaleString('pt-BR'), 'ocorrências usadas no treino']);
+  itens.forEach(([v, t]) => { const d = el('div', null, 'kpi'); d.append(el('b', v), el('span', t)); box.append(d); });
+}
+
+function mensal() {
+  const m = dados.mensal;
+  desenhar('c-mensal', {type: 'bar', data: {labels: m.map(x => mesLabel(x.mes)),
+    datasets: [{label: 'Ocorrências', data: m.map(x => x.total), backgroundColor: m.map(x => x.completo ? COR.marca : COR.cinza), borderRadius: 4, maxBarThickness: 36}]},
+    options: {plugins: {legend: {display: false}, tooltip: {callbacks: {afterLabel: c => m[c.dataIndex].completo ? 'Cadastro completo' : 'Cadastro incompleto'}}},
+      scales: {y: {beginAtZero: true, grid: {drawBorder: false}}, x: {grid: {display: false}}}}}, !m.length);
+}
+
+function proxima() {
+  const box = $('proxima'); box.replaceChildren();
+  const p = dados.previsoes.proxima_semana, m = dados.modelo;
+  if (!p.length) {
+    box.append(el('div', 'Indisponível por enquanto: esta previsão usa as semanas mais recentes e o cadastro está completo só até ' +
+      (m ? dataBR(m.fim_cobertura) : '—') + '. Ela é ativada sozinha quando os meses seguintes forem cadastrados. A demanda esperada por mês, abaixo, continua válida.', 'aviso'));
+    return;
+  }
+  box.append(el('p', 'Semana de ' + dataBR(p[0].referencia) + '. A faixa mostra onde o valor real costuma ficar; a referência é a média das 4 últimas semanas.', 'sub'));
+  const linha = el('div', null, 'semana');
+  p.forEach(x => {
+    const d = el('div', null, 'kpi'), t = el('span', x.distrito);
+    d.append(t, el('b', num(x.previsto) + ' ocorrências'), el('span', `faixa ${num(x.baixo)} a ${num(x.alto)} · referência ${num(x.media_movel)}`), nivel(x.nivel));
+    linha.append(d);
+  });
+  box.append(linha);
+}
+
+function esperado() {
+  const e = dados.previsoes.esperado_mes, alvo = $('t-esperado');
+  if (!e.length) { desenhar('c-esperado', null, true); alvo.replaceChildren(); return; }
+  const meses = [...new Set(e.map(x => x.referencia))], dists = [...new Set(e.map(x => x.distrito))];
+  const ds = [], oculto = i => /\((faixa|baixo)\)/.test(i.text || i.dataset.label);
+  dists.forEach((d, i) => {
+    const linhas = meses.map(m => e.find(x => x.referencia === m && x.distrito === d));
+    ds.push({label: d + ' (faixa)', data: linhas.map(x => x.alto), borderWidth: 0, pointRadius: 0, fill: '+1', backgroundColor: COR_DIST[i] + '1f'});
+    ds.push({label: d + ' (baixo)', data: linhas.map(x => x.baixo), borderWidth: 0, pointRadius: 0});
+    ds.push({label: d, data: linhas.map(x => x.previsto), borderColor: COR_DIST[i], backgroundColor: COR_DIST[i], tension: .3, borderWidth: 2.5, pointRadius: 3,
+      faixa: linhas.map(x => `faixa ${num(x.baixo)} a ${num(x.alto)}`)});
+  });
+  desenhar('c-esperado', {type: 'line', data: {labels: meses.map(mesLabel), datasets: ds},
+    options: {interaction: {mode: 'index', intersect: false},
+      scales: {y: {beginAtZero: true, title: {display: true, text: 'ocorrências por semana'}}, x: {grid: {display: false}}},
+      plugins: {legend: {labels: {filter: i => !oculto(i)}},
+        tooltip: {filter: i => !oculto(i), callbacks: {afterLabel: c => c.dataset.faixa ? c.dataset.faixa[c.dataIndex] : ''}}}}});
+  const t = el('table'), cab = el('tr'); cab.append(el('th', 'Mês'));
+  dists.forEach(d => cab.append(el('th', d)));
+  t.append(el('thead')); t.tHead.append(cab); const corpo = el('tbody'); t.append(corpo);
+  meses.forEach(m => {
+    const tr = el('tr'); tr.append(el('td', mesLabel(m)));
+    dists.forEach(d => { const x = e.find(y => y.referencia === m && y.distrito === d), td = el('td');
+      td.append(el('span', `${num(x.previsto)}  (${num(x.baixo)}–${num(x.alto)})`), nivel(x.nivel)); tr.append(td); });
+    corpo.append(tr);
+  });
+  alvo.replaceChildren(t);
+}
+
+function tipos() {
+  const sel = $('p-area'), areas = [...new Set(dados.probabilidades.map(x => x.area_risco))].sort();
+  if (!sel.options.length) areas.forEach(a => sel.add(new Option('Área ' + a, a)));
+  if (!areas.length) { desenhar('c-tipo', null, true); return; }
+  const area = +sel.value, epoca = $('p-epoca').value;
+  const linhas = dados.probabilidades.filter(x => x.area_risco === area && x.epoca === epoca).sort((a, b) => b.probabilidade - a.probabilidade);
+  desenhar('c-tipo', {type: 'bar', data: {labels: linhas.map(x => x.grupo), datasets: [{data: linhas.map(x => x.probabilidade * 100), backgroundColor: COR.azul, borderRadius: 4, maxBarThickness: 26}]},
+    options: {indexAxis: 'y', plugins: {legend: {display: false}, tooltip: {callbacks: {label: c => c.parsed.x.toFixed(0) + '%'}}},
+      scales: {x: {beginAtZero: true, max: 100, ticks: {callback: v => v + '%'}}, y: {grid: {display: false}}}}});
+  const t = dados.modelo && dados.modelo.teste_classificacao;
+  $('aviso-tipo').textContent = t
+    ? `Modelo fraco: no teste (${t.ocorrencias_teste} ocorrências) acertou o grupo em ${(t.modelo['acurácia'] * 100).toFixed(0)}% dos casos, contra ${(t.classe_mais_frequente['acurácia'] * 100).toFixed(0)}% de chutar sempre o grupo mais comum. Use como orientação, não como decisão.` : '';
+}
+
+function motivos() {
+  const m = dados.por_motivo;
+  desenhar('c-motivo', {type: 'bar', data: {labels: m.map(x => x.motivo), datasets: [{data: m.map(x => x.total), backgroundColor: COR.marca, borderRadius: 4, maxBarThickness: 24}]},
+    options: {indexAxis: 'y', plugins: {legend: {display: false}}, scales: {y: {grid: {display: false}}, x: {beginAtZero: true}}}}, !m.length);
+}
+
+function areas() {
+  const a = dados.por_area;
+  desenhar('c-area', {type: 'bar', data: {labels: a.map(x => 'Área ' + x.area_risco), datasets: [{data: a.map(x => x.total), backgroundColor: a.map(x => COR_AREA[x.area_risco] || COR.cinza), borderRadius: 4, maxBarThickness: 56}]},
+    options: {plugins: {legend: {display: false}}, scales: {y: {beginAtZero: true}, x: {grid: {display: false}}}}}, !a.length);
+}
+
+function mapaPontos() {
+  if (!mapa) {
+    mapa = L.map('mapa', {attributionControl: false, scrollWheelZoom: false}).setView([-23.70, -46.77], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19}).addTo(mapa);
+    L.control.attribution({prefix: false}).addAttribution('© OpenStreetMap').addTo(mapa);
+    camada = L.layerGroup().addTo(mapa);
+    new ResizeObserver(() => mapa.invalidateSize()).observe($('mapa'));
+    const leg = $('leg-mapa');
+    COR_AREA.forEach((c, i) => { const s = el('span'), b = el('i'); b.style.background = c; s.append(b, 'Área ' + i); leg.append(s); });
+  }
+  camada.clearLayers();
+  const pts = dados.pontos;
+  pts.forEach(p => L.circleMarker([p.lat, p.lon], {radius: 5, color: COR_AREA[p.area] || '#555', fillOpacity: .6, weight: 1}).bindTooltip(p.motivo).addTo(camada));
+  if (pts.length) mapa.fitBounds(L.latLngBounds(pts.map(p => [p.lat, p.lon])).pad(0.1), {maxZoom: 14});
+}
+
+function modelo() {
+  const m = dados.modelo, info = $('modelo-info'), box = $('t-modelo'), selos = $('selos');
+  box.replaceChildren(); selos.replaceChildren(); $('modelo-conclusao').textContent = '';
+  if (!m) { info.textContent = ''; desenhar('c-teste', null, true); return; }
+  info.textContent = 'Cada ponto é uma semana já conhecida, prevista usando só o que existia antes dela.';
+  [`Treinado em ${new Date(m.gerado_em).toLocaleDateString('pt-BR')}`, `${m.ocorrencias_treino.toLocaleString('pt-BR')} ocorrências`, `${m.semanas_treino} semanas completas`]
+    .forEach(s => selos.append(el('span', s, 'selo')));
+  const teste = dados.previsoes.teste, t = m.teste_regressao;
+  if (t) {
+    const tab = el('table'), cab = el('tr');
+    ['Método', 'Erro médio (MAE)', 'Previsões testadas'].forEach(h => cab.append(el('th', h)));
+    tab.append(el('thead')); tab.tHead.append(cab); const corpo = el('tbody'); tab.append(corpo);
+    [['Random Forest (modelo)', t.mae_modelo], ['Média das 4 últimas semanas (referência)', t.mae_media_movel]].forEach(([n, v]) => {
+      const tr = el('tr'); tr.append(el('td', n), el('td', num(v)), el('td', t.previsoes)); corpo.append(tr); });
+    box.append(tab);
+    $('modelo-conclusao').textContent = t.mae_modelo < t.mae_media_movel
+      ? 'O modelo errou menos que a referência neste teste, mas a amostra é pequena: trate a diferença como indício, não como prova.'
+      : 'Neste teste o modelo não superou a referência simples. Mais meses de cadastro completo são o que mais melhora isso.';
+  }
+  const dists = [...new Set(teste.map(x => x.distrito))], semanas = [...new Set(teste.map(x => x.referencia))].sort();
+  const ds = [];
+  dists.forEach((d, i) => {
+    const l = semanas.map(s => teste.find(x => x.referencia === s && x.distrito === d));
+    ds.push({label: d + ' · observado', data: l.map(x => x && x.observado), borderColor: COR_DIST[i], backgroundColor: COR_DIST[i], tension: .25, borderWidth: 2.5, pointRadius: 2});
+    ds.push({label: d + ' · previsto', data: l.map(x => x && x.previsto), borderColor: COR_DIST[i], borderDash: [6, 4], pointStyle: 'rectRot', tension: .25, borderWidth: 2, pointRadius: 0});
+  });
+  desenhar('c-teste', {type: 'line', data: {labels: semanas.map(dataBR), datasets: ds},
+    options: {interaction: {mode: 'index', intersect: false}, scales: {y: {beginAtZero: true, title: {display: true, text: 'ocorrências na semana'}}, x: {grid: {display: false}, ticks: {maxTicksLimit: 8}}}}}, !teste.length);
+}
+
+$('f-distrito').addEventListener('change', carregar);
+$('f-ano').addEventListener('change', carregar);
+$('f-limpar').addEventListener('click', () => { $('f-distrito').value = ''; $('f-ano').value = ''; carregar(); });
+$('p-area').addEventListener('change', tipos);
+$('p-epoca').addEventListener('change', tipos);
+carregar();
+</script>
+</body>
+</html>
