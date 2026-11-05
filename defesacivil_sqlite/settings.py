@@ -2,9 +2,17 @@ from pathlib import Path
 import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SECRET_KEY = 'django-insecure-secret-key'
-DEBUG = True
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'defesa2-0.onrender.com']
+
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "chave-local-temporaria")
+
+DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
+
+ALLOWED_HOSTS = [
+    "127.0.0.1",
+    "localhost",
+    "defesa2-0.onrender.com",
+]
+
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/login/"
@@ -57,25 +65,27 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'defesacivil_sqlite.wsgi.application'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres.ictrkqooqetuxlgrampk',
-        'PASSWORD': 'AuroraClarice@@2025',
-        'HOST': 'aws-1-sa-east-1.pooler.supabase.com',
-        'PORT': '6543',
-        'OPTIONS': {
-            'client_encoding': 'UTF8',
+
+if os.environ.get("USE_SQLITE") == "1":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
         }
     }
-}
-
-if os.environ.get("USE_SQLITE"):
+else:
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ["DB_NAME"],
+            "USER": os.environ["DB_USER"],
+            "PASSWORD": os.environ["DB_PASSWORD"],
+            "HOST": os.environ["DB_HOST"],
+            "PORT": os.environ.get("DB_PORT", "6543"),
+            "OPTIONS": {
+                "client_encoding": "UTF8",
+                "sslmode": "require",
+            },
         }
     }
 
