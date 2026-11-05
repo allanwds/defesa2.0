@@ -360,7 +360,10 @@ function areas() {
 function mapaPontos() {
   if (!mapa) {
     mapa = L.map('mapa', {attributionControl: false, scrollWheelZoom: false}).setView([-23.70, -46.77], 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19}).addTo(mapa);
+    L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+}).addTo(mapa);
     L.control.attribution({prefix: false}).addAttribution('© OpenStreetMap').addTo(mapa);
     camada = L.layerGroup().addTo(mapa);
     new ResizeObserver(() => mapa.invalidateSize()).observe($('mapa'));
